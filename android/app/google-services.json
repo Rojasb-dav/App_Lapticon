@@ -1,0 +1,106 @@
+{
+  "project_info": {
+    "project_number": "919252353880",
+    "project_id": "lapticon-eba31",
+    "storage_bucket": "lapticon-eba31.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:919252353880:android:66bd206ed07a36da5d5b2d",
+        "android_client_info": {
+          "package_name": "com.example.lapticon_clean"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "919252353880-f85n851toa89hsrdjksop9l21van8178.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.lapticon_clean",
+            "certificate_hash": "54542d7da9b7c79585c19264a5343e8377464514"
+          }
+        },
+        {
+          "client_id": "919252353880-9g5b6t2lhmh4fh32nalegqq2gbd76grh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAuh64b_I2OtC7KYuubCVx9plEe2pojp2M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "919252353880-9g5b6t2lhmh4fh32nalegqq2gbd76grh.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "919252353880-ee77v52gq0ldq353lba2nu8i8gt7j3c7.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.lapticonClean"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:919252353880:android:3d32e8039ee5faf55d5b2d",
+        "android_client_info": {
+          "package_name": "com.lapticon.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "919252353880-o2kun2nsijnhpcgenvpuos4ls1uc3t1v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lapticon.app",
+            "certificate_hash": "6dce9d053535b2c16c15dadabdda94e7c27e9bba"
+          }
+        },
+        {
+          "client_id": "919252353880-sljmbbidg1p9vdk3kctjjq39ol2go6rp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lapticon.app",
+            "certificate_hash": "9893228278a8e798d770d2c5675f68cd4dec6fa3"
+          }
+        },
+        {
+          "client_id": "919252353880-9g5b6t2lhmh4fh32nalegqq2gbd76grh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAuh64b_I2OtC7KYuubCVx9plEe2pojp2M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "919252353880-9g5b6t2lhmh4fh32nalegqq2gbd76grh.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "919252353880-ee77v52gq0ldq353lba2nu8i8gt7j3c7.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.lapticonClean"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
