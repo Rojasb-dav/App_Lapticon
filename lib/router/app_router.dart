@@ -5,6 +5,7 @@ import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/auth/complete_profile_screen.dart';
 import '../screens/home/home_screen.dart';
+import '../screens/auth/forgot_password_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -12,6 +13,7 @@ class AppRoutes {
   static const String register = '/register';
   static const String completeProfile = '/complete-profile';
   static const String home = '/home';
+  static const String forgotPassword = '/forgot-password';
 }
 
 final GoRouter appRouter = GoRouter(
@@ -36,6 +38,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.home,
       builder: (context, state) => const HomeScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.forgotPassword,
+      builder: (context, state) => const ForgotPasswordScreen(),
     ),
   ],
   errorBuilder: (context, state) => Scaffold(

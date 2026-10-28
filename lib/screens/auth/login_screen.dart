@@ -261,6 +261,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                         _obscurePassword = !_obscurePassword;
                                       });
                                     },
+
+
                                   ),
                                   filled: true,
                                   fillColor: const Color(0xFF0F172A),
@@ -284,7 +286,23 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   return null;
                                 },
                               ),
-                              const SizedBox(height: 28),
+                              const SizedBox(height: 4),
+
+                              // Forgot Password Link
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: () => context.push(AppRoutes.forgotPassword),
+                                  child: const Text(
+                                    '¿Olvidaste tu contraseña?',
+                                    style: TextStyle(
+                                      color: Color(0xFF38BDF8),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
 
                               // Submit Button with Gradient
                               AnimatedContainer(

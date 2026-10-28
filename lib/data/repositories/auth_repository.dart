@@ -51,6 +51,18 @@ class AuthRepository {
     }
   }
 
+  /// Envía correo de recuperación de contraseña
+  Future<void> sendPasswordResetEmail({required String email}) async {
+    try {
+      await _firebaseAuth.setLanguageCode('es'); // correo en español
+      await _firebaseAuth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    } catch (e) {
+      throw Exception('Error inesperado al enviar el correo: $e');
+    }
+  }
+
   /// Sign out current user
   Future<void> signOut() async {
     await _firebaseAuth.signOut();
@@ -59,6 +71,8 @@ class AuthRepository {
   /// Friendly Spanish exception mapping
   String _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {
+      case 'network-request-failed':
+        return 'Sin conexión a internet. Verifica tu red.';
       case 'user-not-found':
         return 'No existe ningún usuario registrado con este correo electrónico.';
       case 'wrong-password':

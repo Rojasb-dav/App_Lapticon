@@ -88,6 +88,21 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
+  /// Recuperación de contraseña
+  Future<bool> resetPassword(String email) async {
+    _setLoading(true);
+    _clearError();
+    try {
+      await _authRepository.sendPasswordResetEmail(email: email);
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _setLoading(false);
+      return false;
+    }
+  }
+
   /// Sign out
   Future<void> signOut() async {
     _setLoading(true);
