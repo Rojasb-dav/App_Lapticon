@@ -6,6 +6,8 @@ import '../screens/auth/register_screen.dart';
 import '../screens/auth/complete_profile_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
+import '../screens/auth/role_selection_screen.dart';
+import '../screens/viajes/registrar_viaje_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -14,11 +16,22 @@ class AppRoutes {
   static const String completeProfile = '/complete-profile';
   static const String home = '/home';
   static const String forgotPassword = '/forgot-password';
+  static const String roleSelection = '/seleccionar-rol';
+  static const String registrarViaje = '/registrar-viaje';
+
 }
 
 final GoRouter appRouter = GoRouter(
   initialLocation: AppRoutes.splash,
   routes: [
+    GoRoute(
+      path: AppRoutes.roleSelection,
+      builder: (context, state) => const RoleSelectionScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.registrarViaje,
+      builder: (context, state) => const RegistrarViajeScreen(),
+    ),
     GoRoute(
       path: AppRoutes.splash,
       builder: (context, state) => const SplashScreen(),
@@ -43,6 +56,7 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.forgotPassword,
       builder: (context, state) => const ForgotPasswordScreen(),
     ),
+
   ],
   errorBuilder: (context, state) => Scaffold(
     body: Center(

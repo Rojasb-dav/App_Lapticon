@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/user_viewmodel.dart';
 import '../../router/app_router.dart';
+import '../../viewmodels/role_viewmodel.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -52,6 +53,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
+  /// Inicia sesión con Firebase y decide a qué pantalla ir:
+  /// - Sin perfil → Completar Perfil.
+  /// - Con perfil → carga el rol guardado y va a la pantalla de elegir rol.
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -59,6 +63,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     final authVM = Provider.of<AuthViewModel>(context, listen: false);
     final userVM = Provider.of<UserViewModel>(context, listen: false);
+    final roleVM = Provider.of<RoleViewModel>(context, listen: false); // NUEVO
 
     final success = await authVM.login(
       _emailController.text.trim(),
@@ -72,7 +77,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       if (!mounted) return;
 
       if (hasProfile) {
-        context.go(AppRoutes.home);
+        // NUEVO: trae el rol del backend (o de la caché) para preseleccionarlo
+        await roleVM.cargarRol(userVM.userProfile!);
+        if (!mounted) return;
+        context.go(AppRoutes.roleSelection); // NUEVO: antes iba a home
       } else {
         context.go(AppRoutes.completeProfile);
       }
@@ -94,6 +102,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

@@ -1,127 +1,194 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
+import '../../../models/viaje_model.dart';
+import '../../../router/app_router.dart';
+import '../../../viewmodels/role_viewmodel.dart';
+import '../../../viewmodels/viaje_viewmodel.dart';
+import '../../../widgets/lapticon_ui.dart';
 
-class ViajesTab extends StatelessWidget {
+class ViajesTab extends StatefulWidget {
   const ViajesTab({super.key});
+
+  @override
+  State<ViajesTab> createState() => _ViajesTabState();
+}
+
+class _ViajesTabState extends State<ViajesTab> {
+  bool _solicitado = false;
+
+  Future<void> _irARegistrar() async {
+    final ok = await context.push<bool>(AppRoutes.registrarViaje);
+    if (ok == true && mounted) context.read<ViajeViewModel>().cargarMisViajes();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final roleVM = context.watch<RoleViewModel>();
+
+    if (!roleVM.esViajero) return const _VistaRemitente();
+
+    // Carga la lista la primera vez que el viajero entra a la pestaña
+    if (!_solicitado) {
+      _solicitado = true;
+      WidgetsBinding.instance.addPostFrameCallback(
+              (_) => context.read<ViajeViewModel>().cargarMisViajes());
+    }
+
+    final vm = context.watch<ViajeViewModel>();
+
+    return RefreshIndicator(
+      color: LapticonColors.acento,
+      onRefresh: vm.cargarMisViajes,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        children: [
+          GradientButton(
+            text: 'Registrar nuevo viaje',
+            icon: Icons.add_rounded,
+            onPressed: _irARegistrar,
+          ),
+          const SizedBox(height: 28),
+          const Text('Mis viajes',
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 14),
+          if (vm.cargandoLista)
+            const Padding(
+              padding: EdgeInsets.all(40),
+              child: Center(child: CircularProgressIndicator(color: LapticonColors.acento)),
+            )
+          else if (vm.errorLista != null)
+            _Mensaje(
+              icon: Icons.cloud_off_rounded,
+              titulo: 'No pudimos cargar tus viajes',
+              texto: vm.errorLista!,
+              accion: TextButton(
+                onPressed: vm.cargarMisViajes,
+                child: const Text('Reintentar', style: TextStyle(color: LapticonColors.acento)),
+              ),
+            )
+          else if (vm.viajes.isEmpty)
+              const _Mensaje(
+                icon: Icons.luggage_rounded,
+                titulo: 'Aún no tienes viajes',
+                texto: 'Registra tu próximo vuelo para empezar a llevar encomiendas.',
+              )
+            else
+              ...vm.viajes.map((v) => _ViajeCard(viaje: v)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ViajeCard extends StatelessWidget {
+  final ViajeModel viaje;
+  const _ViajeCard({required this.viaje});
+
+  @override
+  Widget build(BuildContext context) {
+    final completado = viaje.estado.toLowerCase() == 'completado';
+    final f = viaje.fecha;
+    final fecha = f == null
+        ? 'Sin fecha'
+        : '${f.day.toString().padLeft(2, '0')}/${f.month.toString().padLeft(2, '0')}/${f.year}';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: LapticonCard(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: LapticonColors.azul1.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.flight_rounded, color: LapticonColors.acento),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${viaje.origen} → ${viaje.destino}',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 4),
+                  Text('Vuelo ${viaje.numeroVuelo} · $fecha',
+                      style: const TextStyle(color: Colors.white60, fontSize: 13)),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: (completado ? Colors.grey : Colors.green).withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(completado ? 'Completado' : 'Activo',
+                  style: TextStyle(
+                      color: completado ? Colors.white60 : Colors.greenAccent,
+                      fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VistaRemitente extends StatelessWidget {
+  const _VistaRemitente();
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Icon Badge
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF0284C7).withValues(alpha: 0.15),
-                border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.3), width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF0284C7).withValues(alpha: 0.2),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.construction_rounded,
-                size: 56,
-                color: Color(0xFF38BDF8),
-              ),
+        padding: const EdgeInsets.all(24),
+        child: _Mensaje(
+          icon: Icons.inventory_2_rounded,
+          titulo: 'Estás usando Lapticon como Remitente',
+          texto: 'El registro de viajes es para viajeros. Cambia tu rol si vas a viajar y quieres llevar encomiendas.',
+          accion: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: GradientButton(
+              text: 'Cambiar a Viajero',
+              icon: Icons.swap_horiz_rounded,
+              onPressed: () => context.push(AppRoutes.roleSelection),
             ),
-            const SizedBox(height: 24),
-
-            // Tag Badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0284C7).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.4)),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.engineering_rounded, size: 14, color: Color(0xFF38BDF8)),
-                  SizedBox(width: 6),
-                  Text(
-                    'MÓDULO DE VIAJES',
-                    style: TextStyle(
-                      color: Color(0xFF38BDF8),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            const Text(
-              'Espacio en Desarrollo',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Este módulo está reservado para la búsqueda de rutas, selección de asientos y gestión de boletos de viaje.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 28),
-
-            // Teammate Instruction Card
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.info_outline_rounded, color: Color(0xFF38BDF8), size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        'Guía para tu compañero:',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    '• Agrega tus controladores y vistas en viajes_tab.dart.\n• La sesión activa y el Firebase ID Token ya están provistos en la arquitectura.',
-                    style: TextStyle(
-                      color: Colors.white60,
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _Mensaje extends StatelessWidget {
+  final IconData icon;
+  final String titulo;
+  final String texto;
+  final Widget? accion;
+  const _Mensaje({required this.icon, required this.titulo, required this.texto, this.accion});
+
+  @override
+  Widget build(BuildContext context) {
+    return LapticonCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Icon(icon, size: 48, color: LapticonColors.acento),
+          const SizedBox(height: 14),
+          Text(titulo,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(texto,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, height: 1.4)),
+          if (accion != null) accion!,
+        ],
       ),
     );
   }

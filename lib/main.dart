@@ -6,6 +6,9 @@ import 'firebase_options.dart';
 import 'router/app_router.dart';
 import 'viewmodels/auth_viewmodel.dart';
 import 'viewmodels/user_viewmodel.dart';
+import 'viewmodels/role_viewmodel.dart';
+import 'viewmodels/viaje_viewmodel.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +37,8 @@ class LapticonApp extends StatelessWidget {
         ChangeNotifierProvider<UserViewModel>(
           create: (_) => UserViewModel(),
         ),
+        ChangeNotifierProvider<RoleViewModel>(create: (_) => RoleViewModel()),
+        ChangeNotifierProvider<ViajeViewModel>(create: (_) => ViajeViewModel()),
       ],
       child: MaterialApp.router(
         title: 'Lapticon',

@@ -102,4 +102,16 @@ class UserRepository {
       rethrow;
     }
   }
+  /// Guarda el rol en el backend con PUT /api/users/{uid}
+  /// Se envía el perfil completo para no borrar datos si el backend reemplaza el documento.
+  Future<void> updateRol({required UserModel profile, required String rol}) async {
+    await _apiClient.put(ApiConstants.updateUser(profile.uid), {
+      'nombre': profile.nombre,
+      'apellido': profile.apellido,
+      'telefono': profile.telefono,
+      'nacionalidad': profile.nacionalidad,
+      'rol': rol,
+    });
+  }
+
 }
