@@ -31,6 +31,7 @@ class AuthViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _currentUser != null;
+  bool get isGoogleLinked => _authRepository.isGoogleLinked;
 
   void _initAuthStateListener() {
     _authStateSubscription = _authRepository.authStateChanges.listen((User? user) {
@@ -83,6 +84,51 @@ class AuthViewModel extends ChangeNotifier {
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       _status = AuthStatus.error;
+      _setLoading(false);
+      return false;
+    }
+  }
+
+  /// Sign in with Google Account
+  Future<bool> signInWithGoogle() async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final credential = await _authRepository.signInWithGoogle();
+      if (credential == null) {
+        _setLoading(false);
+        return false;
+      }
+      _currentUser = credential.user;
+      _status = AuthStatus.authenticated;
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _status = AuthStatus.error;
+      _setLoading(false);
+      return false;
+    }
+  }
+
+  /// Link Google Account to currently logged-in user
+  Future<bool> linkGoogleAccount() async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final credential = await _authRepository.linkGoogleAccount();
+      if (credential == null) {
+        _setLoading(false);
+        return false;
+      }
+      _currentUser = credential.user;
+      _setLoading(false);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
       _setLoading(false);
       return false;
     }

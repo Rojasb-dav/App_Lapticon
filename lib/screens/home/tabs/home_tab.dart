@@ -257,6 +257,92 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                   ],
                 ),
               ),
+              const SizedBox(height: 20),
+
+              // Google Linking Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: authVM.isGoogleLinked
+                        ? Colors.greenAccent.withValues(alpha: 0.3)
+                        : Colors.white.withValues(alpha: 0.1),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.g_mobiledata_rounded, size: 36, color: Colors.white),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            authVM.isGoogleLinked ? 'Cuenta de Google Vinculada' : 'Vincular Cuenta de Google',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            authVM.isGoogleLinked
+                                ? 'Puedes iniciar sesión con contraseña o con Google.'
+                                : 'Enlaza Google para iniciar sesión rápido sin contraseña.',
+                            style: const TextStyle(
+                              color: Colors.white60,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    authVM.isGoogleLinked
+                        ? const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 24)
+                        : OutlinedButton(
+                            onPressed: authVM.isLoading
+                                ? null
+                                : () async {
+                                    final success = await authVM.linkGoogleAccount();
+                                    if (context.mounted) {
+                                      if (success) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: const Text('¡Cuenta de Google vinculada exitosamente!'),
+                                            backgroundColor: Colors.green,
+                                            behavior: SnackBarBehavior.floating,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          ),
+                                        );
+                                      } else if (authVM.errorMessage != null) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(authVM.errorMessage!),
+                                            backgroundColor: Colors.redAccent,
+                                            behavior: SnackBarBehavior.floating,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFF38BDF8)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            ),
+                            child: const Text(
+                              'Vincular',
+                              style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 24),
 
               // Modular Architecture Information Banner

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../viewmodels/auth_viewmodel.dart';
+import '../../viewmodels/user_viewmodel.dart';
+import '../../viewmodels/role_viewmodel.dart';
 import '../../router/app_router.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -67,6 +69,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const Icon(Icons.error_outline, color: Colors.white),
               const SizedBox(width: 10),
               Expanded(child: Text(error)),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    FocusScope.of(context).unfocus();
+
+    final authVM = Provider.of<AuthViewModel>(context, listen: false);
+    final userVM = Provider.of<UserViewModel>(context, listen: false);
+    final roleVM = Provider.of<RoleViewModel>(context, listen: false);
+
+    final success = await authVM.signInWithGoogle();
+
+    if (!mounted) return;
+
+    if (success) {
+      final hasProfile = await userVM.fetchUserProfile();
+      if (!mounted) return;
+
+      if (hasProfile) {
+        await roleVM.cargarRol(userVM.userProfile!);
+        if (!mounted) return;
+        context.go(AppRoutes.roleSelection);
+      } else {
+        context.go(AppRoutes.completeProfile);
+      }
+    } else if (authVM.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(child: Text(authVM.errorMessage!)),
             ],
           ),
           backgroundColor: Colors.redAccent,
@@ -358,6 +400,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                               color: Colors.white,
                                             ),
                                           ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Separator
+                                Row(
+                                  children: [
+                                    Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.15))),
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 12.0),
+                                      child: Text('o regístrate con', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                                    ),
+                                    Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.15))),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Google Sign-In Button
+                                SizedBox(
+                                  height: 50,
+                                  child: OutlinedButton.icon(
+                                    onPressed: authVM.isLoading ? null : _handleGoogleSignIn,
+                                    icon: const Icon(Icons.g_mobiledata_rounded, size: 30, color: Colors.white),
+                                    label: const Text(
+                                      'Registrarse con Google',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],

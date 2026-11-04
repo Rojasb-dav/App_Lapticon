@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/user_viewmodel.dart';
 import '../../router/app_router.dart';
@@ -18,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _rememberEmail = false;
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -26,6 +28,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
+    _loadRememberedEmail();
+
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -45,6 +49,33 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     _animController.forward();
   }
 
+  Future<void> _loadRememberedEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final remember = prefs.getBool('remember_email_enabled') ?? false;
+      final email = prefs.getString('remembered_email') ?? '';
+      if (mounted && remember && email.isNotEmpty) {
+        setState(() {
+          _rememberEmail = true;
+          _emailController.text = email;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveRememberedEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_rememberEmail) {
+        await prefs.setBool('remember_email_enabled', true);
+        await prefs.setString('remembered_email', _emailController.text.trim());
+      } else {
+        await prefs.setBool('remember_email_enabled', false);
+        await prefs.remove('remembered_email');
+      }
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
     _animController.dispose();
@@ -53,17 +84,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
-  /// Inicia sesión con Firebase y decide a qué pantalla ir:
-  /// - Sin perfil → Completar Perfil.
-  /// - Con perfil → carga el rol guardado y va a la pantalla de elegir rol.
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     FocusScope.of(context).unfocus();
 
+    await _saveRememberedEmail();
+    if (!mounted) return;
+
     final authVM = Provider.of<AuthViewModel>(context, listen: false);
     final userVM = Provider.of<UserViewModel>(context, listen: false);
-    final roleVM = Provider.of<RoleViewModel>(context, listen: false); // NUEVO
+    final roleVM = Provider.of<RoleViewModel>(context, listen: false);
 
     final success = await authVM.login(
       _emailController.text.trim(),
@@ -77,10 +108,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       if (!mounted) return;
 
       if (hasProfile) {
-        // NUEVO: trae el rol del backend (o de la caché) para preseleccionarlo
         await roleVM.cargarRol(userVM.userProfile!);
         if (!mounted) return;
-        context.go(AppRoutes.roleSelection); // NUEVO: antes iba a home
+        context.go(AppRoutes.roleSelection);
       } else {
         context.go(AppRoutes.completeProfile);
       }
@@ -103,6 +133,45 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     }
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    FocusScope.of(context).unfocus();
+
+    final authVM = Provider.of<AuthViewModel>(context, listen: false);
+    final userVM = Provider.of<UserViewModel>(context, listen: false);
+    final roleVM = Provider.of<RoleViewModel>(context, listen: false);
+
+    final success = await authVM.signInWithGoogle();
+
+    if (!mounted) return;
+
+    if (success) {
+      final hasProfile = await userVM.fetchUserProfile();
+      if (!mounted) return;
+
+      if (hasProfile) {
+        await roleVM.cargarRol(userVM.userProfile!);
+        if (!mounted) return;
+        context.go(AppRoutes.roleSelection);
+      } else {
+        context.go(AppRoutes.completeProfile);
+      }
+    } else if (authVM.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(child: Text(authVM.errorMessage!)),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -270,8 +339,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                         _obscurePassword = !_obscurePassword;
                                       });
                                     },
-
-
                                   ),
                                   filled: true,
                                   fillColor: const Color(0xFF0F172A),
@@ -295,23 +362,62 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   return null;
                                 },
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 10),
 
-                              // Forgot Password Link
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton(
-                                  onPressed: () => context.push(AppRoutes.forgotPassword),
-                                  child: const Text(
-                                    '¿Olvidaste tu contraseña?',
-                                    style: TextStyle(
-                                      color: Color(0xFF38BDF8),
-                                      fontWeight: FontWeight.w600,
+                              // Checkbox Recordar Correo & Forgot Password Link
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _rememberEmail = !_rememberEmail;
+                                      });
+                                    },
+                                    child: Row(
+                                      children: [
+                                        SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: Checkbox(
+                                            value: _rememberEmail,
+                                            activeColor: const Color(0xFF38BDF8),
+                                            checkColor: Colors.black,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                            onChanged: (val) {
+                                              setState(() {
+                                                _rememberEmail = val ?? false;
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'Recordar correo',
+                                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ),
+                                  TextButton(
+                                    onPressed: () => context.push(AppRoutes.forgotPassword),
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: const Text(
+                                      '¿Olvidaste tu contraseña?',
+                                      style: TextStyle(
+                                        color: Color(0xFF38BDF8),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 20),
 
                               // Submit Button with Gradient
                               AnimatedContainer(
@@ -356,6 +462,43 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                             color: Colors.white,
                                           ),
                                         ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Separator
+                              Row(
+                                children: [
+                                  Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.15))),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 12.0),
+                                    child: Text('o continúa con', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                                  ),
+                                  Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.15))),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Google Sign-In Button
+                              SizedBox(
+                                height: 50,
+                                child: OutlinedButton.icon(
+                                  onPressed: authVM.isLoading ? null : _handleGoogleSignIn,
+                                  icon: const Icon(Icons.g_mobiledata_rounded, size: 30, color: Colors.white),
+                                  label: const Text(
+                                    'Continuar con Google',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],

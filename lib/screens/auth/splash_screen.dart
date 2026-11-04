@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/user_viewmodel.dart';
+import '../../viewmodels/role_viewmodel.dart';
 import '../../router/app_router.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -44,18 +45,27 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _checkInitialAuth() async {
-    await Future.delayed(const Duration(milliseconds: 1800));
+    await Future.delayed(const Duration(milliseconds: 1500));
+
+    // Esperar a que Firebase Auth restaure la sesión persistente del disco
+    User? user = FirebaseAuth.instance.currentUser;
+    user ??= await FirebaseAuth.instance.authStateChanges().first.timeout(
+      const Duration(seconds: 3),
+      onTimeout: () => FirebaseAuth.instance.currentUser,
+    );
 
     if (!mounted) return;
 
-    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     final userViewModel = Provider.of<UserViewModel>(context, listen: false);
+    final roleViewModel = Provider.of<RoleViewModel>(context, listen: false);
 
-    if (authViewModel.isAuthenticated) {
+    if (user != null) {
       final hasProfile = await userViewModel.fetchUserProfile();
       if (!mounted) return;
 
       if (hasProfile) {
+        await roleViewModel.cargarRol(userViewModel.userProfile!);
+        if (!mounted) return;
         context.go(AppRoutes.home);
       } else {
         context.go(AppRoutes.completeProfile);
