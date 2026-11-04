@@ -187,7 +187,7 @@ class _Mensaje extends StatelessWidget {
           Text(texto,
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white70, height: 1.4)),
-          if (accion != null) accion!,
+          if (accion case final Widget a) a,
         ],
       ),
     );
