@@ -8,6 +8,8 @@ import '../screens/home/home_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/role_selection_screen.dart';
 import '../screens/viajes/registrar_viaje_screen.dart';
+import '../screens/encomiendas/crear_encomienda_screen.dart';
+import '../screens/chat/chat_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -18,7 +20,8 @@ class AppRoutes {
   static const String forgotPassword = '/forgot-password';
   static const String roleSelection = '/seleccionar-rol';
   static const String registrarViaje = '/registrar-viaje';
-
+  static const String crearEncomienda = '/crear-encomienda';
+  static const String chat = '/chat';
 }
 
 final GoRouter appRouter = GoRouter(
@@ -31,6 +34,20 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.registrarViaje,
       builder: (context, state) => const RegistrarViajeScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.crearEncomienda,
+      builder: (context, state) => const CrearEncomiendaScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.chat,
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        return ChatScreen(
+          chatId: extra['chatId']?.toString() ?? '',
+          receiverName: extra['receiverName']?.toString() ?? 'Usuario',
+        );
+      },
     ),
     GoRoute(
       path: AppRoutes.splash,
@@ -56,7 +73,6 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.forgotPassword,
       builder: (context, state) => const ForgotPasswordScreen(),
     ),
-
   ],
   errorBuilder: (context, state) => Scaffold(
     body: Center(

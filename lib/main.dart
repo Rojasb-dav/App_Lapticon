@@ -8,7 +8,8 @@ import 'viewmodels/auth_viewmodel.dart';
 import 'viewmodels/user_viewmodel.dart';
 import 'viewmodels/role_viewmodel.dart';
 import 'viewmodels/viaje_viewmodel.dart';
-
+import 'viewmodels/encomienda_viewmodel.dart';
+import 'viewmodels/chat_viewmodel.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +40,8 @@ class LapticonApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<RoleViewModel>(create: (_) => RoleViewModel()),
         ChangeNotifierProvider<ViajeViewModel>(create: (_) => ViajeViewModel()),
+        ChangeNotifierProvider<EncomiendaViewModel>(create: (_) => EncomiendaViewModel()),
+        ChangeNotifierProvider<ChatViewModel>(create: (_) => ChatViewModel()),
       ],
       child: MaterialApp.router(
         title: 'Lapticon',

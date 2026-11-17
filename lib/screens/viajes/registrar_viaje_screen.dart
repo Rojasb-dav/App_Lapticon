@@ -18,11 +18,12 @@ class _RegistrarViajeScreenState extends State<RegistrarViajeScreen> {
   final _origenCtrl = TextEditingController();
   final _destinoCtrl = TextEditingController();
 
-  /// Ciudades disponibles en Lapticon (nombre visible → código IATA del aeropuerto).
   static const Map<String, String> _ciudades = {
     'Bogotá': 'BOG',
     'Medellín': 'MDE',
     'Cali': 'CLO',
+    'Miami': 'MIA',
+    'Madrid': 'MAD',
   };
 
   DateTime? _fecha;
@@ -30,7 +31,6 @@ class _RegistrarViajeScreenState extends State<RegistrarViajeScreen> {
   @override
   void initState() {
     super.initState();
-    // Si cambia el número de vuelo, hay que validar de nuevo
     _vueloCtrl.addListener(() => context.read<ViajeViewModel>().resetValidacion());
   }
 
@@ -97,7 +97,6 @@ class _RegistrarViajeScreenState extends State<RegistrarViajeScreen> {
       _snack(error);
       return;
     }
-    // Autocompletar origen y destino con los datos del vuelo
     final v = vm.vueloValidado!;
     if (_origenCtrl.text.isEmpty && v.origen.isNotEmpty) _origenCtrl.text = v.origen;
     if (_destinoCtrl.text.isEmpty && v.destino.isNotEmpty) _destinoCtrl.text = v.destino;
@@ -123,8 +122,6 @@ class _RegistrarViajeScreenState extends State<RegistrarViajeScreen> {
 
   String? _requerido(String? v, String msg) => (v == null || v.trim().isEmpty) ? msg : null;
 
-  /// Menú desplegable de ciudad que escribe la selección en [controller].
-  /// [excluir] evita que origen y destino sean la misma ciudad.
   Widget _selectorCiudad({
     required String label,
     required IconData icono,
@@ -156,13 +153,13 @@ class _RegistrarViajeScreenState extends State<RegistrarViajeScreen> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<ViajeViewModel>();
     final vuelo = vm.vueloValidado;
 
     return Scaffold(
+      backgroundColor: const Color(0xFF0F172A),
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -175,9 +172,12 @@ class _RegistrarViajeScreenState extends State<RegistrarViajeScreen> {
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: lapticonFondo,
         child: SafeArea(
           child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.all(24),
             child: Form(
               key: _formKey,
@@ -187,7 +187,7 @@ class _RegistrarViajeScreenState extends State<RegistrarViajeScreen> {
                   const Text('Datos de tu vuelo',
                       style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 6),
-                  const Text('Validamos tu vuelo contra datos reales antes de registrarlo.',
+                  const Text('Validamos tu vuelo con los datos del sistema.',
                       style: TextStyle(color: Colors.white70)),
                   const SizedBox(height: 24),
                   LapticonCard(
@@ -198,7 +198,7 @@ class _RegistrarViajeScreenState extends State<RegistrarViajeScreen> {
                           controller: _vueloCtrl,
                           textCapitalization: TextCapitalization.characters,
                           style: const TextStyle(color: Colors.white),
-                          decoration: lapticonInput('Número de vuelo (ej. AV9)', Icons.confirmation_number_outlined),
+                          decoration: lapticonInput('Número de vuelo (ej. AV9, AA916)', Icons.confirmation_number_outlined),
                           validator: (v) => _requerido(v, 'Ingresa el número de vuelo'),
                         ),
                         const SizedBox(height: 16),
@@ -238,14 +238,11 @@ class _RegistrarViajeScreenState extends State<RegistrarViajeScreen> {
                             child: Row(
                               children: [
                                 const Icon(Icons.check_circle, color: Colors.greenAccent),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    'Vuelo verificado'
-                                        '${vuelo.aerolinea.isNotEmpty ? ' · ${vuelo.aerolinea}' : ''}\n'
-                                        '${vuelo.origen} → ${vuelo.destino}'
-                                        '${vuelo.salida.isNotEmpty ? '\nSalida: ${vuelo.salida}' : ''}',
-                                    style: const TextStyle(color: Colors.white, height: 1.4),
+                                    'Vuelo Verificado · $_numeroVuelo',
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               ],
@@ -266,18 +263,14 @@ class _RegistrarViajeScreenState extends State<RegistrarViajeScreen> {
                           controller: _destinoCtrl,
                           excluir: _origenCtrl.text,
                         ),
-
                       ],
                     ),
-
                   ),
-
                   const SizedBox(height: 28),
                   GradientButton(
                     text: 'Registrar Viaje',
                     icon: Icons.save_rounded,
                     loading: vm.guardando,
-                    // Solo se habilita después de validar el vuelo
                     onPressed: (vuelo == null || vm.guardando) ? null : _registrar,
                   ),
                   if (vuelo == null)

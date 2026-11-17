@@ -4,7 +4,7 @@
 
 **Lapticon** es una plataforma móvil desarrollada en **Flutter** para la gestión e integración de servicios de **Viajes y Encomiendas**.
 
-Esta entrega contiene la **arquitectura base completa**, incluyendo la **Autenticación con Firebase Authentication (Email/Contraseña y Google Sign-In)**, el **Registro y Gestión de Perfiles de Usuario** conectado a un backend REST API desplegado en **Render**, selección de roles (**Remitente** / **Viajero**), **Persistencia Automática de Sesión**, y una interfaz moderna con estilo **Glassmorphic UI**, animaciones fluidas a 60 FPS y soporte modular para el desarrollo colaborativo.
+Esta entrega contiene la **aplicación funcional completa**, incluyendo la **Autenticación con Firebase Authentication**, el **Registro y Gestión de Perfiles de Usuario** conectado a un backend REST API desplegado en **Render**, selección de roles (**Remitente** / **Viajero**), **Publicación de Encomiendas**, **Registro de Viajes**, **Filtro de Coincidencia de Rutas**, **Aceptación de Encomiendas**, **Chat Directo entre Viajero y Remitente**, **Persistencia Automática de Sesión**, e interfaz moderna estilo **Glassmorphic UI** con animaciones fluidas a 60 FPS.
 
 ---
 
@@ -33,35 +33,45 @@ lib/
 │   │   ├── api_client.dart          # Cliente HTTP centralizado con inclusión automática de Bearer ID Token
 │   │   └── api_constants.dart       # Endpoints de la API REST de Render
 │   └── repositories/
-│       ├── auth_repository.dart     # Capa de datos para Firebase Auth (Login, Registro, Google Sign-In, Reset Pass)
-│       ├── user_repository.dart     # Capa de datos para la API REST (GET /api/users/{uid}, POST /api/users/register, PUT /api/users/{uid})
-│       └── viaje_repository.dart    # Capa de datos para la gestión y registro de viajes
+│       ├── auth_repository.dart     # Capa de datos para Firebase Auth (Login, Registro, Google, Reset Pass)
+│       ├── user_repository.dart     # Capa de datos para la API REST de usuarios (/api/users)
+│       ├── viaje_repository.dart    # Capa de datos para la gestión y registro de viajes (/api/viajes)
+│       ├── encomienda_repository.dart# Capa de datos para encomiendas (/api/encomiendas)
+│       └── chat_repository.dart     # Capa de datos para interacción y chat directo (/api/chats)
 ├── models/
 │   ├── user_model.dart              # Modelo de datos de usuario con rol y deserialización JSON tolerante
-│   └── viaje_model.dart             # Modelo de datos para las rutas de viaje
+│   ├── viaje_model.dart             # Modelo de datos para las rutas de viaje
+│   ├── encomienda_model.dart        # Modelo de encomienda con origen, destino, peso, precio y estado
+│   └── chat_model.dart              # Modelo de mensajes del chat entre Viajero y Remitente
 ├── viewmodels/
-│   ├── auth_viewmodel.dart          # ViewModel que gestiona el estado de autenticación y vinculación con Google
-│   ├── user_viewmodel.dart          # ViewModel que gestiona la carga y actualización del perfil del usuario
+│   ├── auth_viewmodel.dart          # ViewModel que gestiona la autenticación y vinculación de cuentas
+│   ├── user_viewmodel.dart          # ViewModel que gestiona la carga y actualización del perfil
 │   ├── role_viewmodel.dart          # ViewModel para la persistencia del rol (Remitente / Viajero)
-│   └── viaje_viewmodel.dart         # ViewModel para la gestión de viajes
+│   ├── viaje_viewmodel.dart         # ViewModel para la publicación y consulta de viajes
+│   ├── encomienda_viewmodel.dart    # ViewModel para creación, filtrado por ruta y aceptación de encomiendas
+│   └── chat_viewmodel.dart          # ViewModel para la gestión del chat en tiempo real
 ├── router/
 │   └── app_router.dart              # Configuración declarativa de rutas con GoRouter
 ├── screens/
 │   ├── auth/
-│   │   ├── splash_screen.dart        # Carga inicial con verificación asíncrona de sesión persistente
-│   │   ├── login_screen.dart         # Login con Correo/Contraseña, Google, Recordar correo y recuperar contraseña
-│   │   ├── register_screen.dart      # Registro de nuevas cuentas en Firebase Auth y Google Sign-In
-│   │   ├── forgot_password_screen.dart # Ventana de envío de correo para recuperación de contraseña
+│   │   ├── splash_screen.dart        # Carga inicial con comprobación asíncrona de sesión persistente
+│   │   ├── login_screen.dart         # Login con Correo/Contraseña, Recordar correo y recuperar clave
+│   │   ├── register_screen.dart      # Registro de nuevas cuentas en Firebase Auth
+│   │   ├── forgot_password_screen.dart # Ventana de recuperación de contraseña por correo
 │   │   ├── role_selection_screen.dart # Selección e intercambio de roles (Remitente / Viajero)
 │   │   └── complete_profile_screen.dart # Formulario con Lista de Países e inmutabilidad de datos
 │   ├── home/
 │   │   ├── home_screen.dart          # Contenedor principal con BottomNavigationBar y estado persistente
 │   │   └── tabs/
-│   │       ├── home_tab.dart         # Panel de bienvenida, datos del usuario, vincular Google, copia de UID y logout
-│   │       ├── viajes_tab.dart       # Módulo de consulta de viajes y botón de registro
-│   │       └── encomiendas_tab.dart  # Módulo de rastreo y envíos de encomiendas
-│   └── viajes/
-│       └── registrar_viaje_screen.dart # Formulario para crear y publicar una nueva ruta de viaje
+│   │       ├── home_tab.dart         # Panel de bienvenida, datos del usuario, copia de UID y logout
+│   │       ├── viajes_tab.dart       # Panel del Viajero: viajes activos, filtro por ruta y aceptación
+│   │       └── encomiendas_tab.dart  # Panel del Remitente: publicación de encomiendas y estado
+│   ├── encomiendas/
+│   │   └── crear_encomienda_screen.dart # Formulario para publicar una nueva encomienda
+│   ├── viajes/
+│   │   └── registrar_viaje_screen.dart # Formulario para publicar una nueva ruta de viaje
+│   └── chat/
+│       └── chat_screen.dart          # Pantalla de chat directo habilitada tras aceptar la encomienda
 ├── widgets/
 │   └── lapticon_ui.dart              # Componentes de UI reutilizables estilo Glassmorphic
 ├── firebase_options.dart             # Opciones de configuración del proyecto de Firebase (lapticon-eba31)
@@ -70,67 +80,56 @@ lib/
 
 ---
 
-## 🔐 Funcionalidades de Autenticación y Seguridad
+## 🔐 Módulos Funcionales y Criterios de Evaluación
 
-### 1. **Garantía de Token Fresco**:
-En cada solicitud HTTP enviada al backend, `ApiClient` invoca `await FirebaseAuth.instance.currentUser?.getIdToken(true)`. Esto asegura que el token no haya expirado y se adjunte en el encabezado:
-`Authorization: Bearer <id_token>`
+### 1. **Registro y Perfil de Usuarios (15%)**:
+- Autenticación con Firebase Auth (Email y Contraseña).
+- Selección e intercambio de roles (**Remitente** / **Viajero**).
+- Formulario de perfil con lista desplegable de países para la Nacionalidad.
+- **Regla de Inmutabilidad**: Al editar el perfil, `Nombre`, `Apellido` y `Nacionalidad` permanecen bloqueados (solo lectura). Únicamente se permite actualizar el `Teléfono` de contacto.
 
-### 2. **Persistencia Automática de Sesión**:
-Firebase Auth almacena de forma nativa en el almacenamiento seguro del dispositivo la sesión activa. En `SplashScreen`, la app espera asíncronamente mediante `FirebaseAuth.instance.authStateChanges().first`. Si el usuario cierra o sale de la app, **la sesión no se finaliza** y al regresar ingresa directamente al Home. La sesión únicamente expira si presiona la opción **Cerrar Sesión**.
+### 2. **Registro de la Encomienda (15%)**:
+- Formulario interactivo `CrearEncomiendaScreen` para el usuario **Remitente**.
+- Permite especificar **Origen**, **Destino**, **Descripción**, **Peso**, **Valor a pagar ($)** y **Fecha de Vencimiento/Caducidad**.
+- Persistencia enviada al Backend REST API (`POST /api/encomiendas`).
 
-### 3. **Recordar Correo Electrónico**:
-En la pantalla de Login, se incluye la casilla **"Recordar correo"**. Al marcarla, almacena el correo en `SharedPreferences` para pre-llenarlo en futuros inicios de sesión. Por motivos de seguridad, **la contraseña NUNCA se almacena**.
+### 3. **Registro del Viaje (15%)**:
+- Formulario `RegistrarViajeScreen` para el usuario **Viajero**.
+- Permite registrar Origen, Destino, Número de vuelo/vehículo y Fecha.
+- Persistencia enviada al Backend REST API (`POST /api/viajes`).
 
-### 4. **Nacionalidad con Lista Desplegable e Inmutabilidad de Perfil**:
-- Al crear la cuenta por primera vez, el usuario elige su país de origen desde una lista desplegable con todos los países de la región (*Ecuador, Colombia, Perú, Venezuela, México, Argentina, Chile, EE. UU., España, etc.*).
-- Al editar el perfil posteriormente:
-  - 🔒 **`Nombre`**, **`Apellido`** y **`Nacionalidad`** permanecen bloqueados (solo lectura).
-  - ✏️ **`Teléfono`** es el único campo editable habilitado para actualizar el contacto.
+### 4. **Filtro de Coincidencia de Rutas y Aceptación (15%)**:
+- **Lógica de Encuentro (El viajero ve al remitente)**: Al seleccionar su viaje en `ViajesTab`, la app **filtra automáticamente mostrando únicamente aquellas encomiendas que coinciden de forma exacta en su ruta (`Origen` ➔ `Destino`)**.
+- Acción **"Aceptar Llevar Encomienda"** (`PUT /api/encomiendas/tomar/{id}`): El viajero acepta transportar el paquete.
 
----
-
-## 🌐 Inicio de Sesión y Vinculación con Google
-
-### **Inicio de Sesión Directo con Google**:
-En las pantallas de **Login** y **Registro** se cuenta con el botón **"Continuar con Google"**. Al presionar sobre él, se autentica mediante `google_sign_in` y genera una credencial de OAuth en Firebase.
-
-### **Manejo de Cuentas Existentes y Vinculación**:
-1. Si un usuario registró originalmente su cuenta con Correo y Contraseña e intenta usar Google Sign-In con ese mismo correo, Firebase detecta el conflicto (`account-exists-with-different-credential`) y la app le muestra el mensaje explicativo:
-   > *"Ya existe una cuenta registrada con este correo electrónico. Inicia sesión con tu contraseña y podrás vincular Google desde tu perfil."*
-
-2. En la pestaña de Inicio (`HomeTab`), el usuario dispone de la sección **"Vincular Cuenta de Google"**:
-   - Presiona **"Vincular"** para asociar su cuenta de Google a su perfil de correo/contraseña existente mediante `user.linkWithCredential(credential)`.
-   - Una vez vinculada, el estado cambia a **"Cuenta de Google Vinculada"** con un check verde. Desde ese momento, puede iniciar sesión indistintamente con su contraseña o con Google.
+### 5. **Interacción Directa y Chat Viajero-Remitente (15%)**:
+- Se habilita **únicamente después de que el viajero acepta llevar la encomienda**, dando una justificación clara de negocio para comunicarse.
+- Pantalla `ChatScreen` para coordinar el punto y hora de entrega.
 
 ---
 
-## 🔑 Configuración de Huellas SHA-1 en Firebase (Guía para Desarrolladores)
+## 🔒 Persistencia y Opciones de Autenticación
 
-Para que el inicio de sesión con Google funcione sin rechazos de seguridad (`ApiException 10`), la Consola de Firebase valida la firma digital SHA-1 con la que se compiló la aplicación.
-
-### **Escenario A: Distribución del APK Generado (`app-debug.apk`)**:
-Cuando un integrante del equipo genera el APK y se lo comparte a sus compañeros o usuarios finales para que lo instalen en sus teléfonos:
-- La firma digital **ya queda grabada permanentemente dentro del archivo APK**.
-- **A todos los usuarios que instalen ese APK les funcionará Google Sign-In en sus celulares sin necesidad de estar conectados a ninguna PC**, siempre que la huella SHA-1 de quien compiló ese APK esté registrada en Firebase Console.
-
-### **Escenario B: Múltiples Desarrolladores Compilando desde sus Laptops**:
-Cuando cada integrante del equipo programa y compila la app en su propio Android Studio:
-1. Cada desarrollador debe extraer la huella SHA-1 de su propia laptop ejecutando en la terminal:
-   ```bash
-   keytool -list -v -keystore "%USERPROFILE%\.android\debug.keystore" -alias androiddebugkey -storepass android -keypass android
-   ```
-2. En **[Firebase Console](https://console.firebase.google.com)** -> Proyecto **`lapticon-eba31`** -> **Configuración del Proyecto (⚙️)** -> **Tus Aplicaciones Android** (`com.example.lapticon_clean`).
-3. Hacer clic en **"Agregar huella digital"** (*Add fingerprint*). **Firebase permite registrar múltiples huellas SHA-1 en la misma aplicación**.
-4. Al agregar las huellas SHA-1 de cada laptop del equipo, la autenticación con Google funcionará perfectamente para todos los desarrolladores mientras trabajan localmente.
+1. **Garantía de Token Fresco**:
+   En cada solicitud HTTP enviada al backend, `ApiClient` invoca `await FirebaseAuth.instance.currentUser?.getIdToken(true)`.
+2. **Persistencia Automática de Sesión**:
+   Firebase Auth almacena de forma nativa la sesión. En `SplashScreen`, la app espera asíncronamente mediante `FirebaseAuth.instance.authStateChanges().first`. Si el usuario cierra o sale de la app, **la sesión no finaliza**. Únicamente expira al presionar **Cerrar Sesión**.
+3. **Recordar Correo Electrónico**:
+   Casilla **"Recordar correo"** en el Login guardada en `SharedPreferences`. La contraseña **NUNCA** se almacena.
+4. **Estado de Botones de Google**:
+   Los botones de inicio de sesión con Google incluyen una notificación informativa indicando que dicha opción se encuentra en desarrollo por restricciones de la plataforma de Firebase.
 
 ---
 
-## 🚀 Guía de Integración para Integrantes del Equipo
+## 🖼️ Guía para la Personalización del Icono de la App
 
-La arquitectura está totalmente desacoplada para el trabajo colaborativo:
+Para cambiar el icono de la aplicación en dispositivos Android:
 
-1. **Módulo de Viajes**:
-   - Código localizado en `lib/screens/home/tabs/viajes_tab.dart`, `lib/screens/viajes/registrar_viaje_screen.dart`, `lib/data/repositories/viaje_repository.dart` y `lib/viewmodels/viaje_viewmodel.dart`.
-2. **Módulo de Encomiendas**:
-   - Código localizado en `lib/screens/home/tabs/encomiendas_tab.dart`.
+1. Coloca la imagen cuadrada de tu icono (en formato PNG de 512x512 px) en la carpeta de recursos.
+2. Reemplaza las imágenes `ic_launcher.png` en las siguientes carpetas:
+   - `android/app/src/main/res/mipmap-mdpi/ic_launcher.png`
+   - `android/app/src/main/res/mipmap-hdpi/ic_launcher.png`
+   - `android/app/src/main/res/mipmap-xhdpi/ic_launcher.png`
+   - `android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png`
+   - `android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png`
+3. O bien utiliza el paquete `flutter_launcher_icons` agregándolo a `pubspec.yaml` y ejecutando `flutter pub run flutter_launcher_icons`.

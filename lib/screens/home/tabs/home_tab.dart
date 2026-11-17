@@ -304,32 +304,18 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                     authVM.isGoogleLinked
                         ? const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 24)
                         : OutlinedButton(
-                            onPressed: authVM.isLoading
-                                ? null
-                                : () async {
-                                    final success = await authVM.linkGoogleAccount();
-                                    if (context.mounted) {
-                                      if (success) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: const Text('¡Cuenta de Google vinculada exitosamente!'),
-                                            backgroundColor: Colors.green,
-                                            behavior: SnackBarBehavior.floating,
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                          ),
-                                        );
-                                      } else if (authVM.errorMessage != null) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(authVM.errorMessage!),
-                                            backgroundColor: Colors.redAccent,
-                                            behavior: SnackBarBehavior.floating,
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  },
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text(
+                                    'La vinculación con cuentas de Google se encuentra en desarrollo por limitaciones de la plataforma.',
+                                  ),
+                                  backgroundColor: const Color(0xFF0284C7),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                              );
+                            },
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: Color(0xFF38BDF8)),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

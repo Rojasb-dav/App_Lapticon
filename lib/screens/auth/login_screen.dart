@@ -135,42 +135,22 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   Future<void> _handleGoogleSignIn() async {
     FocusScope.of(context).unfocus();
-
-    final authVM = Provider.of<AuthViewModel>(context, listen: false);
-    final userVM = Provider.of<UserViewModel>(context, listen: false);
-    final roleVM = Provider.of<RoleViewModel>(context, listen: false);
-
-    final success = await authVM.signInWithGoogle();
-
-    if (!mounted) return;
-
-    if (success) {
-      final hasProfile = await userVM.fetchUserProfile();
-      if (!mounted) return;
-
-      if (hasProfile) {
-        await roleVM.cargarRol(userVM.userProfile!);
-        if (!mounted) return;
-        context.go(AppRoutes.roleSelection);
-      } else {
-        context.go(AppRoutes.completeProfile);
-      }
-    } else if (authVM.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white),
-              const SizedBox(width: 10),
-              Expanded(child: Text(authVM.errorMessage!)),
-            ],
-          ),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.white),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text('Esta opción de inicio de sesión con Google se encuentra en desarrollo por limitaciones de la plataforma.'),
+            ),
+          ],
         ),
-      );
-    }
+        backgroundColor: const Color(0xFF0284C7),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   @override

@@ -25,16 +25,32 @@ class ViajeModel {
       estado: (j['estado'] ?? 'activo').toString(),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'numeroVuelo': numeroVuelo,
+      'fecha': fecha?.toIso8601String(),
+      'origen': origen,
+      'destino': destino,
+      'estado': estado,
+    };
+  }
 }
 
-/// Datos del vuelo devueltos por /api/vuelos/:numero/:fecha (AeroDataBox)
+/// Datos del vuelo devueltos por /api/vuelos/:numero/:fecha
 class VueloInfo {
   final String aerolinea;
   final String origen;
   final String destino;
   final String salida;
 
-  VueloInfo({required this.aerolinea, required this.origen, required this.destino, required this.salida});
+  VueloInfo({
+    required this.aerolinea,
+    required this.origen,
+    required this.destino,
+    required this.salida,
+  });
 
   factory VueloInfo.fromResponse(dynamic r) {
     dynamic d = r;
