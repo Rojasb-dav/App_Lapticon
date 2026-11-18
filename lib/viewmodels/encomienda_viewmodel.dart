@@ -112,6 +112,7 @@ class EncomiendaViewModel extends ChangeNotifier {
   }
 
   /// Buscar encomiendas cuya ruta coincida exactamente con la del viajero (Origen -> Destino)
+  /// Excluye las encomiendas creadas por el propio usuario en sesión.
   Future<void> buscarEncomiendasParaViajero({
     required String origen,
     required String destino,
@@ -120,7 +121,7 @@ class EncomiendaViewModel extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    await _cargarCache();
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
 
     try {
       final list = await _repository.obtenerEncomiendasDisponibles(
@@ -129,20 +130,11 @@ class EncomiendaViewModel extends ChangeNotifier {
       );
 
       _encomiendasDisponiblesRuta = list.where((e) =>
+          (currentUid == null || e.uidRemitente != currentUid) &&
           e.origen.trim().toLowerCase() == origen.trim().toLowerCase() &&
           e.destino.trim().toLowerCase() == destino.trim().toLowerCase() &&
-          e.estaDisponible).toList();
+          (e.estaDisponible || e.estaTomada)).toList();
 
-      // Agregar encomiendas locales que coincidan con la ruta
-      final localMatches = _misEncomiendas.where((e) =>
-          e.origen.trim().toLowerCase() == origen.trim().toLowerCase() &&
-          e.destino.trim().toLowerCase() == destino.trim().toLowerCase()).toList();
-
-      for (var item in localMatches) {
-        if (!_encomiendasDisponiblesRuta.any((element) => element.id == item.id)) {
-          _encomiendasDisponiblesRuta.add(item);
-        }
-      }
     } catch (e) {
       _errorMessage = e.toString();
     } finally {

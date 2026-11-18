@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/encomienda_model.dart';
 import '../network/api_client.dart';
 import '../network/api_constants.dart';
@@ -7,9 +9,49 @@ class EncomiendaRepository {
   final ApiClient _apiClient;
   final FirebaseAuth _firebaseAuth;
 
+  static const String _publicSharedKey = 'shared_public_encomiendas';
+
   EncomiendaRepository({ApiClient? apiClient, FirebaseAuth? firebaseAuth})
       : _apiClient = apiClient ?? ApiClient(),
         _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
+
+  List<dynamic> _extraerLista(dynamic res) {
+    if (res is List) return res;
+    if (res is Map) {
+      if (res['encomiendas'] is List) return res['encomiendas'];
+      if (res['data'] is List) return res['data'];
+      if (res['result'] is List) return res['result'];
+      if (res['items'] is List) return res['items'];
+    }
+    return [];
+  }
+
+  Future<void> _guardarEnSharedPublic(EncomiendaModel encomienda) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final str = prefs.getString(_publicSharedKey);
+      List<dynamic> listJson = [];
+      if (str != null && str.isNotEmpty) {
+        listJson = jsonDecode(str) as List;
+      }
+      final newMap = encomienda.toJson();
+      listJson.removeWhere((item) => (item['id'] ?? item['_id']) == encomienda.id);
+      listJson.insert(0, newMap);
+      await prefs.setString(_publicSharedKey, jsonEncode(listJson));
+    } catch (_) {}
+  }
+
+  Future<List<EncomiendaModel>> _obtenerDeSharedPublic() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final str = prefs.getString(_publicSharedKey);
+      if (str != null && str.isNotEmpty) {
+        final listJson = jsonDecode(str) as List;
+        return listJson.map((e) => EncomiendaModel.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
 
   /// Crear una nueva encomienda POST /api/encomiendas
   Future<EncomiendaModel> crearEncomienda({
@@ -36,26 +78,28 @@ class EncomiendaRepository {
       'estado': 'disponible',
     };
 
+    EncomiendaModel encomiendaCreada;
+
     try {
       final res = await _apiClient.post(ApiConstants.encomiendas, payload);
       if (res is Map<String, dynamic>) {
-        return EncomiendaModel.fromJson(res);
+        encomiendaCreada = EncomiendaModel.fromJson(res);
+      } else {
+        encomiendaCreada = EncomiendaModel(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          uidRemitente: user.uid,
+          nombreRemitente: nombreRemitente,
+          origen: origen,
+          destino: destino,
+          descripcion: descripcion,
+          peso: peso,
+          valorPagar: valorPagar,
+          fechaVencimiento: fechaVencimiento,
+          estado: 'disponible',
+        );
       }
-      return EncomiendaModel(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        uidRemitente: user.uid,
-        nombreRemitente: nombreRemitente,
-        origen: origen,
-        destino: destino,
-        descripcion: descripcion,
-        peso: peso,
-        valorPagar: valorPagar,
-        fechaVencimiento: fechaVencimiento,
-        estado: 'disponible',
-      );
     } catch (e) {
-      // Fallback local si el backend no responde
-      return EncomiendaModel(
+      encomiendaCreada = EncomiendaModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         uidRemitente: user.uid,
         nombreRemitente: nombreRemitente,
@@ -68,6 +112,9 @@ class EncomiendaRepository {
         estado: 'disponible',
       );
     }
+
+    await _guardarEnSharedPublic(encomiendaCreada);
+    return encomiendaCreada;
   }
 
   /// Obtener mis encomiendas creadas como remitente GET /api/encomiendas/mis-encomiendas
@@ -77,13 +124,14 @@ class EncomiendaRepository {
 
     try {
       final res = await _apiClient.get(ApiConstants.misEncomiendas);
-      if (res is List) {
-        return res.map((e) => EncomiendaModel.fromJson(e as Map<String, dynamic>)).toList();
+      final rawList = _extraerLista(res);
+      if (rawList.isNotEmpty) {
+        return rawList.map((e) => EncomiendaModel.fromJson(e as Map<String, dynamic>)).toList();
       }
-      return [];
-    } catch (_) {
-      return [];
-    }
+    } catch (_) {}
+
+    final publicList = await _obtenerDeSharedPublic();
+    return publicList.where((e) => e.uidRemitente == user.uid).toList();
   }
 
   /// Buscar encomiendas disponibles filtradas por la ruta del viajero (Origen -> Destino)
@@ -91,24 +139,32 @@ class EncomiendaRepository {
     required String origen,
     required String destino,
   }) async {
+    List<EncomiendaModel> resultado = [];
+
     try {
       final res = await _apiClient.get('${ApiConstants.encomiendasBuscar}?origen=$origen&destino=$destino');
-      if (res is List) {
-        return res.map((e) => EncomiendaModel.fromJson(e as Map<String, dynamic>)).toList();
+      final rawList = _extraerLista(res);
+      if (rawList.isNotEmpty) {
+        resultado = rawList.map((e) => EncomiendaModel.fromJson(e as Map<String, dynamic>)).toList();
       }
-      return [];
     } catch (_) {
       try {
         final resAll = await _apiClient.get(ApiConstants.encomiendasDisponibles);
-        if (resAll is List) {
-          final list = resAll.map((e) => EncomiendaModel.fromJson(e as Map<String, dynamic>)).toList();
-          return list.where((e) =>
-              e.origen.toLowerCase() == origen.toLowerCase() &&
-              e.destino.toLowerCase() == destino.toLowerCase()).toList();
+        final rawList = _extraerLista(resAll);
+        if (rawList.isNotEmpty) {
+          resultado = rawList.map((e) => EncomiendaModel.fromJson(e as Map<String, dynamic>)).toList();
         }
       } catch (_) {}
-      return [];
     }
+
+    final publicList = await _obtenerDeSharedPublic();
+    for (var item in publicList) {
+      if (!resultado.any((e) => e.id == item.id)) {
+        resultado.add(item);
+      }
+    }
+
+    return resultado;
   }
 
   /// Tomar / Aceptar encomienda PUT /api/encomiendas/tomar/{id}
@@ -125,10 +181,20 @@ class EncomiendaRepository {
         'nombreViajero': viajeroNombre,
         'estado': 'tomada',
       });
-      return true;
-    } catch (_) {
-      return true; // Retorna true para permitir fluidez local
+    } catch (_) {}
+
+    // Actualizar también en el almacenamiento compartido
+    final publicList = await _obtenerDeSharedPublic();
+    final index = publicList.indexWhere((e) => e.id == id);
+    if (index != -1) {
+      final actualizada = publicList[index].copyWith(
+        estado: 'tomada',
+        uidViajero: user.uid,
+        nombreViajero: viajeroNombre,
+      );
+      await _guardarEnSharedPublic(actualizada);
     }
+    return true;
   }
 
   /// Actualizar estado de encomienda PUT /api/encomiendas/{id}/estado
@@ -140,9 +206,7 @@ class EncomiendaRepository {
       await _apiClient.put(ApiConstants.encomiendaEstado(id), {
         'estado': nuevoEstado,
       });
-      return true;
-    } catch (_) {
-      return true;
-    }
+    } catch (_) {}
+    return true;
   }
 }
