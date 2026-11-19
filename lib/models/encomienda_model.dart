@@ -31,6 +31,15 @@ class EncomiendaModel {
   bool get estaTomada => estado == 'tomada' || estado == 'asignada';
   bool get estaEntregada => estado == 'entregada';
 
+  bool get estaVencida {
+    if (fechaVencimiento.isEmpty) return false;
+    final parsed = DateTime.tryParse(fechaVencimiento);
+    if (parsed == null) return false;
+    final hoy = DateTime.now();
+    final inicioDeHoy = DateTime(hoy.year, hoy.month, hoy.day);
+    return parsed.isBefore(inicioDeHoy);
+  }
+
   factory EncomiendaModel.fromJson(Map<String, dynamic> json) {
     double parseDouble(dynamic val) {
       if (val is num) return val.toDouble();

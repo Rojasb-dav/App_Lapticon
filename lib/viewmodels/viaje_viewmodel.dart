@@ -114,6 +114,19 @@ class ViajeViewModel extends ChangeNotifier {
   }) async {
     _guardando = true;
     notifyListeners();
+
+    // Validar que el viaje/vuelo no esté duplicado
+    final yaExiste = _viajes.any((v) =>
+        v.numeroVuelo.trim().toUpperCase() == numeroVuelo.trim().toUpperCase() &&
+        v.origen.trim().toLowerCase() == origen.trim().toLowerCase() &&
+        v.destino.trim().toLowerCase() == destino.trim().toLowerCase());
+
+    if (yaExiste) {
+      _guardando = false;
+      notifyListeners();
+      return 'Ya tienes registrado un viaje activo para el vuelo $numeroVuelo en la ruta $origen ➔ $destino.';
+    }
+
     try {
       await _repo.registrarViaje(
           numeroVuelo: numeroVuelo, fecha: fecha, origen: origen, destino: destino);
@@ -128,10 +141,7 @@ class ViajeViewModel extends ChangeNotifier {
         estado: 'activo',
       );
 
-      if (!_viajes.any((v) => v.numeroVuelo == numeroVuelo && v.origen == origen && v.destino == destino)) {
-        _viajes.insert(0, nuevoViaje);
-      }
-
+      _viajes.insert(0, nuevoViaje);
       await _guardarCache();
       return null;
     } catch (e) {
@@ -140,5 +150,12 @@ class ViajeViewModel extends ChangeNotifier {
       _guardando = false;
       notifyListeners();
     }
+  }
+
+  /// Eliminar un viaje registrado
+  Future<void> eliminarViaje(String id) async {
+    _viajes.removeWhere((v) => v.id == id);
+    await _guardarCache();
+    notifyListeners();
   }
 }

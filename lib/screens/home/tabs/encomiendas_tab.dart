@@ -116,11 +116,15 @@ class _EncomiendaCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tomada = encomienda.estaTomada;
     final entregada = encomienda.estaEntregada;
+    final vencida = encomienda.estaVencida;
 
     Color estadoColor = const Color(0xFFF59E0B);
     String estadoTexto = 'Buscando viajero';
 
-    if (tomada) {
+    if (vencida) {
+      estadoColor = Colors.grey;
+      estadoTexto = 'Expirada / Vencida';
+    } else if (tomada) {
       estadoColor = Colors.greenAccent;
       estadoTexto = 'Aceptada por viajero';
     } else if (entregada) {
@@ -130,8 +134,22 @@ class _EncomiendaCard extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
-      child: LapticonCard(
+      child: Container(
         padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: vencida ? const Color(0xFF334155) : const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: vencida ? Colors.grey.shade600 : Colors.white.withValues(alpha: 0.1),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -152,12 +170,16 @@ class _EncomiendaCard extends StatelessWidget {
                     children: [
                       Text(
                         '${encomienda.origen} ➔ ${encomienda.destino}',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                        style: TextStyle(
+                          color: vencida ? Colors.grey.shade300 : Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         encomienda.descripcion,
-                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                        style: TextStyle(color: vencida ? Colors.grey.shade400 : Colors.white70, fontSize: 13),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -165,7 +187,11 @@ class _EncomiendaCard extends StatelessWidget {
                 ),
                 Text(
                   '\$${encomienda.valorPagar.toStringAsFixed(2)}',
-                  style: const TextStyle(color: Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(
+                    color: vencida ? Colors.grey.shade400 : const Color(0xFFF59E0B),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
               ],
             ),
@@ -185,12 +211,16 @@ class _EncomiendaCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Vence: ${encomienda.fechaVencimiento}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  vencida ? 'Vencida: ${encomienda.fechaVencimiento}' : 'Vence: ${encomienda.fechaVencimiento}',
+                  style: TextStyle(
+                    color: vencida ? Colors.redAccent : Colors.white54,
+                    fontWeight: vencida ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
-            if (tomada) ...[
+            if (tomada && !vencida) ...[
               const SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,

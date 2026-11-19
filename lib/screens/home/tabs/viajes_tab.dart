@@ -38,6 +38,49 @@ class _ViajesTabState extends State<ViajesTab> {
     );
   }
 
+  Future<void> _confirmarEliminarViaje(BuildContext context, ViajeModel viaje) async {
+    final vm = Provider.of<ViajeViewModel>(context, listen: false);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text('¿Eliminar viaje?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Text(
+          'Se eliminará tu viaje ${viaje.origen} ➔ ${viaje.destino} (Vuelo ${viaje.numeroVuelo}).',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white60)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      await vm.eliminarViaje(viaje.id);
+      if (!mounted) return;
+      final viajes = vm.viajes;
+      setState(() {
+        _viajeSeleccionado = viajes.isNotEmpty ? viajes.first : null;
+      });
+      if (_viajeSeleccionado != null) {
+        _buscarEncomiendas(_viajeSeleccionado!);
+      }
+    }
+  }
+
+  String _fmtFecha(DateTime? d) {
+    if (d == null) return 'Sin fecha';
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final roleVM = context.watch<RoleViewModel>();
@@ -127,24 +170,60 @@ class _ViajesTabState extends State<ViajesTab> {
                 }).toList(),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             if (_viajeSeleccionado != null) ...[
+              // Tarjeta de Información Completa del Viaje Seleccionado
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0284C7).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.3)),
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.filter_alt_rounded, color: Color(0xFF38BDF8), size: 22),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Filtrando encomiendas para la ruta:\n${_viajeSeleccionado!.origen}  ➔  ${_viajeSeleccionado!.destino}',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.flight_rounded, color: Color(0xFF38BDF8), size: 22),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Vuelo ${_viajeSeleccionado!.numeroVuelo}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                          onPressed: () => _confirmarEliminarViaje(context, _viajeSeleccionado!),
+                          tooltip: 'Eliminar viaje',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.event_outlined, color: Colors.white54, size: 14),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Fecha: ${_fmtFecha(_viajeSeleccionado!.fecha)}',
+                          style: const TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                        const SizedBox(width: 16),
+                        const Icon(Icons.location_on_outlined, color: Colors.white54, size: 14),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Ruta: ${_viajeSeleccionado!.origen} ➔ ${_viajeSeleccionado!.destino}',
+                          style: const TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -223,19 +302,26 @@ class _EncomiendaCoincidenteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final aceptada = !encomienda.estaDisponible;
+    final vencida = encomienda.estaVencida;
+
+    Color tarjetaColor = const Color(0xFF1E293B);
+    Color bordeColor = const Color(0xFF38BDF8).withValues(alpha: 0.2);
+
+    if (vencida) {
+      tarjetaColor = const Color(0xFF334155);
+      bordeColor = Colors.grey.shade600;
+    } else if (aceptada) {
+      bordeColor = Colors.green.withValues(alpha: 0.4);
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: tarjetaColor,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: aceptada
-                ? Colors.green.withValues(alpha: 0.4)
-                : const Color(0xFF38BDF8).withValues(alpha: 0.2),
-          ),
+          border: Border.all(color: bordeColor),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.2),
@@ -252,24 +338,32 @@ class _EncomiendaCoincidenteCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.person_pin_circle_rounded, color: Color(0xFF38BDF8), size: 20),
+                    Icon(
+                      Icons.person_pin_circle_rounded,
+                      color: vencida ? Colors.grey : const Color(0xFF38BDF8),
+                      size: 20,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       encomienda.nombreRemitente,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                      style: TextStyle(
+                        color: vencida ? Colors.grey.shade300 : Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
                     ),
                   ],
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD97706).withValues(alpha: 0.2),
+                    color: (vencida ? Colors.grey : const Color(0xFFD97706)).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '\$${encomienda.valorPagar.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Color(0xFFF59E0B),
+                    style: TextStyle(
+                      color: vencida ? Colors.grey.shade400 : const Color(0xFFF59E0B),
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -280,7 +374,7 @@ class _EncomiendaCoincidenteCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               encomienda.descripcion,
-              style: const TextStyle(color: Colors.white70, fontSize: 13),
+              style: TextStyle(color: vencida ? Colors.grey.shade400 : Colors.white70, fontSize: 13),
             ),
             const SizedBox(height: 8),
             Row(
@@ -292,16 +386,43 @@ class _EncomiendaCoincidenteCard extends StatelessWidget {
                   style: const TextStyle(color: Colors.white54, fontSize: 12),
                 ),
                 const SizedBox(width: 16),
-                const Icon(Icons.event_outlined, color: Colors.white38, size: 14),
+                Icon(
+                  Icons.event_outlined,
+                  color: vencida ? Colors.redAccent : Colors.white38,
+                  size: 14,
+                ),
                 const SizedBox(width: 4),
                 Text(
-                  'Vence: ${encomienda.fechaVencimiento}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  vencida ? 'Vencida: ${encomienda.fechaVencimiento}' : 'Vence: ${encomienda.fechaVencimiento}',
+                  style: TextStyle(
+                    color: vencida ? Colors.redAccent : Colors.white54,
+                    fontWeight: vencida ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            if (aceptada)
+            if (vencida)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.timer_off_rounded, color: Colors.grey, size: 18),
+                    SizedBox(width: 6),
+                    Text('Encomienda Expirada',
+                        style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              )
+            else if (aceptada)
               Row(
                 children: [
                   Expanded(
