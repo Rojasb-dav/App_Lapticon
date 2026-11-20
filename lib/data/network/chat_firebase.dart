@@ -5,34 +5,49 @@ import 'package:firebase_core/firebase_core.dart';
 /// Conexión al proyecto Firebase SECUNDARIO "Lapticon Chat", usado solo para el chat.
 /// - El login sigue en el proyecto principal (lapticon-eba31).
 /// - Aquí se entra como usuario anónimo, solo para cumplir las reglas de Firestore.
-/// Si algún día se usa el proyecto principal, basta cambiar estas opciones.
+///
+/// IMPORTANTE: varias pantallas piden la conexión al mismo tiempo al abrir la app.
+/// Por eso se guarda la conexión "en curso" (_db) y todas esperan la misma,
+/// en vez de intentar crear la app 'chat' varias veces (error "already exists").
 class ChatFirebase {
-  static FirebaseApp? _app;
+  static Future<FirebaseFirestore>? _db;
 
   /// Datos de Configuración del proyecto → General (proyecto "Lapticon Chat").
   static const FirebaseOptions _opciones = FirebaseOptions(
-    apiKey: 'AIzaSyDAk3kDRPayAcS5AvTTtGzQdfFBu0iK-xE', // "current_key" del google-services.json (AIza...)
+    apiKey: 'AIzaSyDAk3kDRPayAcS5AvTTtGzQdfFBu0iK-xE',
     appId: '1:149591705291:android:7d1e4c18dc3a907c813d4e',
     messagingSenderId: '149591705291',
     projectId: 'lapticon-chat',
   );
 
-  /// Devuelve la base de datos del chat e inicia la conexión la primera vez.
-  static Future<FirebaseFirestore> db() async {
-    _app ??= await _iniciar();
-    final auth = FirebaseAuth.instanceFor(app: _app!);
-    if (auth.currentUser == null) {
-      await auth.signInAnonymously(); // requiere "Anónimo" activado en Authentication
+  /// Devuelve la base de datos del chat. Todas las llamadas comparten la misma conexión.
+  static Future<FirebaseFirestore> db() => _db ??= _conectar();
+
+  static Future<FirebaseFirestore> _conectar() async {
+    try {
+      final app = await _obtenerApp();
+      final auth = FirebaseAuth.instanceFor(app: app);
+      if (auth.currentUser == null) {
+        await auth.signInAnonymously(); // requiere "Anónimo" activado
+      }
+      return FirebaseFirestore.instanceFor(app: app);
+    } catch (e) {
+      _db = null; // si falló (sin internet, etc.), la próxima llamada reintenta
+      rethrow;
     }
-    return FirebaseFirestore.instanceFor(app: _app!);
   }
 
-  /// Reutiliza la conexión si ya existe (evita error al reiniciar la app).
-  static Future<FirebaseApp> _iniciar() async {
+  /// Reutiliza la app 'chat' si ya existe; si no, la crea una sola vez.
+  static Future<FirebaseApp> _obtenerApp() async {
+    for (final app in Firebase.apps) {
+      if (app.name == 'chat') return app;
+    }
     try {
-      return Firebase.app('chat');
-    } catch (_) {
-      return Firebase.initializeApp(name: 'chat', options: _opciones);
+      return await Firebase.initializeApp(name: 'chat', options: _opciones);
+    } catch (e) {
+      // Si otra parte la creó justo antes, usamos esa.
+      if (e.toString().contains('already exists')) return Firebase.app('chat');
+      rethrow;
     }
   }
 }

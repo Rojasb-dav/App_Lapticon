@@ -47,6 +47,7 @@ class ChatViewModel extends ChangeNotifier {
       _misChats = lista;
       notifyListeners();
     }, onError: (e) {
+      debugPrint('CHAT ERROR (mis chats): $e');
       _error = 'No se pudieron cargar tus chats: ${_limpiar(e)}';
       notifyListeners();
     });
