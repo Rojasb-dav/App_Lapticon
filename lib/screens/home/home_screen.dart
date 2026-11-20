@@ -17,7 +17,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _tabs = const [HomeTab(), ViajesTab(), EncomiendasTab()];
+  List<Widget> get _tabs => [
+    HomeTab(onIrATab: (i) => setState(() => _currentIndex = i)),
+    const ViajesTab(),
+    const EncomiendasTab(),
+  ];
+
   final List<String> _titles = const [
     'Inicio - Lapticon',
     'Módulo de Viajes',
