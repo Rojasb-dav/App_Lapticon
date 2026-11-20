@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../models/viaje_model.dart';
 import '../../../models/encomienda_model.dart';
+import '../../../models/chat_model.dart';
 import '../../../router/app_router.dart';
 import '../../../viewmodels/role_viewmodel.dart';
 import '../../../viewmodels/viaje_viewmodel.dart';
@@ -12,9 +13,9 @@ import '../../../viewmodels/chat_viewmodel.dart';
 import '../../../widgets/lapticon_ui.dart';
 
 /// Pestaña "Viajes".
-/// - Viajero: registra viajes, ve sus viajes y las encomiendas de otros
-///   usuarios que coinciden con su ruta, y puede aceptarlas (match).
-/// - Remitente: ve un aviso para cambiar de rol.
+/// - Viajero: registra viajes, ve encomiendas de otros en su ruta y las acepta.
+///   "Encomiendas que llevo" sale de Firestore, así no desaparece al aceptar.
+/// - Remitente: aviso para cambiar de rol.
 class ViajesTab extends StatefulWidget {
   const ViajesTab({super.key});
 
@@ -23,10 +24,9 @@ class ViajesTab extends StatefulWidget {
 }
 
 class _ViajesTabState extends State<ViajesTab> {
-  bool _solicitado = false; // evita cargar los viajes más de una vez
-  ViajeModel? _viajeSeleccionado; // viaje elegido en los chips
+  bool _solicitado = false;
+  ViajeModel? _viajeSeleccionado;
 
-  /// Abre el formulario de registro y recarga la lista al volver.
   Future<void> _irARegistrar() async {
     final ok = await context.push<bool>(AppRoutes.registrarViaje);
     if (ok == true && mounted) {
@@ -34,7 +34,6 @@ class _ViajesTabState extends State<ViajesTab> {
     }
   }
 
-  /// Busca encomiendas de OTROS usuarios con la misma ruta del viaje.
   void _buscarEncomiendas(ViajeModel viaje) {
     setState(() => _viajeSeleccionado = viaje);
     context.read<EncomiendaViewModel>().buscarEncomiendasParaViajero(
@@ -43,9 +42,7 @@ class _ViajesTabState extends State<ViajesTab> {
     );
   }
 
-  /// El viajero acepta una encomienda:
-  /// 1) PUT /api/encomiendas/tomar/:id (backend)
-  /// 2) crea el chat en Firestore para que el remitente vea "¡Hiciste match!"
+  /// Aceptar: PUT /api/encomiendas/tomar/:id y luego registrar el chat en Firestore.
   Future<void> _aceptarEncomienda(EncomiendaModel enc) async {
     final encomiendaVM = context.read<EncomiendaViewModel>();
     final chatVM = context.read<ChatViewModel>();
@@ -53,21 +50,15 @@ class _ViajesTabState extends State<ViajesTab> {
         context.read<UserViewModel>().userProfile?.nombreCompleto ?? 'Viajero';
 
     final ok = await encomiendaVM.tomarEncomienda(
-      encomienda: enc,
-      viajeroNombre: viajeroNombre,
-    );
+        encomienda: enc, viajeroNombre: viajeroNombre);
     if (!mounted) return;
 
     if (!ok) {
-      _snack(
-        encomiendaVM.errorMessage ?? 'No se pudo aceptar la encomienda.',
-        Colors.redAccent,
-        Icons.error_outline,
-      );
+      _snack(encomiendaVM.errorMessage ?? 'No se pudo aceptar la encomienda.',
+          Colors.redAccent, Icons.error_outline);
       return;
     }
 
-    // 💬 Registrar el match en Firestore (proyecto Lapticon Chat).
     final errorChat = await chatVM.asegurarChat(
       chatId: enc.id,
       uidRemitente: enc.uidRemitente,
@@ -82,22 +73,18 @@ class _ViajesTabState extends State<ViajesTab> {
           Colors.orange, Icons.warning_amber_rounded);
       return;
     }
-
-    _snack('¡Encomienda aceptada! Se ha habilitado el chat con el remitente.',
+    _snack('¡Encomienda aceptada! Búscala en "Encomiendas que llevo".',
         Colors.green, Icons.check_circle_outline);
   }
 
-  /// Muestra un mensaje flotante de color.
   void _snack(String texto, Color color, IconData icono) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            Icon(icono, color: Colors.white),
-            const SizedBox(width: 10),
-            Expanded(child: Text(texto)),
-          ],
-        ),
+        content: Row(children: [
+          Icon(icono, color: Colors.white),
+          const SizedBox(width: 10),
+          Expanded(child: Text(texto)),
+        ]),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -105,7 +92,6 @@ class _ViajesTabState extends State<ViajesTab> {
     );
   }
 
-  /// Cierra (o quita de la lista) el viaje seleccionado.
   Future<void> _confirmarEliminarViaje(ViajeModel viaje) async {
     final vm = context.read<ViajeViewModel>();
     final confirmar = await showDialog<bool>(
@@ -115,7 +101,7 @@ class _ViajesTabState extends State<ViajesTab> {
         title: const Text('¿Cerrar este viaje?',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: Text(
-          'Tu viaje ${viaje.origen} ➔ ${viaje.destino} (Vuelo ${viaje.numeroVuelo}) dejará de aparecer y podrás registrar uno nuevo.',
+          'Tu viaje ${viaje.origen} ➔ ${viaje.destino} (Vuelo ${viaje.numeroVuelo}) dejará de aparecer y podrás registrar uno nuevo. Las encomiendas que ya aceptaste y sus chats se conservan.',
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -135,29 +121,18 @@ class _ViajesTabState extends State<ViajesTab> {
 
     final error = await vm.eliminarViaje(viaje.id);
     if (!mounted) return;
-
     if (error != null) {
       _snack(error, Colors.redAccent, Icons.error_outline);
       return;
     }
-
-    if (vm.cierreSoloLocal) {
-      _snack(
-        'Viaje eliminado de tu lista. El servidor aún no permite cerrarlo, así que puede impedir registrar otro viaje.',
-        Colors.orange,
-        Icons.info_outline,
-      );
-    } else {
-      _snack('Viaje cerrado. Ya puedes registrar uno nuevo.', Colors.green,
-          Icons.check_circle_outline);
-    }
+    _snack('Viaje cerrado. Ya puedes registrar uno nuevo.', Colors.green,
+        Icons.check_circle_outline);
 
     final viajes = vm.viajes;
     setState(() => _viajeSeleccionado = viajes.isNotEmpty ? viajes.first : null);
     if (_viajeSeleccionado != null) _buscarEncomiendas(_viajeSeleccionado!);
   }
 
-  /// Formato de fecha AAAA-MM-DD.
   String _fmtFecha(DateTime? d) {
     if (d == null) return 'Sin fecha';
     return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -168,7 +143,6 @@ class _ViajesTabState extends State<ViajesTab> {
     final roleVM = context.watch<RoleViewModel>();
     if (!roleVM.esViajero) return const _VistaRemitente();
 
-    // Carga inicial (una sola vez) de mis viajes y encomiendas de la ruta.
     if (!_solicitado) {
       _solicitado = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -182,6 +156,25 @@ class _ViajesTabState extends State<ViajesTab> {
 
     final viajeVM = context.watch<ViajeViewModel>();
     final encomiendaVM = context.watch<EncomiendaViewModel>();
+    final chatVM = context.watch<ChatViewModel>();
+    final miUid = chatVM.miUid;
+
+    // Si el viaje seleccionado ya no está en la lista, se toma el primero.
+    if (_viajeSeleccionado != null &&
+        !viajeVM.viajes.any((v) => v.id == _viajeSeleccionado!.id)) {
+      _viajeSeleccionado = viajeVM.viajes.isNotEmpty ? viajeVM.viajes.first : null;
+    }
+
+    // Encomiendas que YO llevo (desde Firestore, no desaparecen).
+    final llevo = chatVM.misChats
+        .where((c) => c.uidViajero == miUid && !c.soyRemitente(miUid))
+        .toList();
+    final idsLlevo = llevo.map((c) => c.chatId).toSet();
+
+    // Disponibles de la ruta, sin las que ya acepté (esas van en "que llevo").
+    final disponibles = encomiendaVM.encomiendasDisponiblesRuta
+        .where((e) => !idsLlevo.contains(e.id))
+        .toList();
 
     return RefreshIndicator(
       color: LapticonColors.acento,
@@ -209,8 +202,7 @@ class _ViajesTabState extends State<ViajesTab> {
                   color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
 
-          // ---- Lista de mis viajes ----
-          if (viajeVM.cargandoLista)
+          if (viajeVM.cargandoLista && viajeVM.viajes.isEmpty)
             const Padding(
               padding: EdgeInsets.all(30),
               child: Center(
@@ -224,7 +216,6 @@ class _ViajesTabState extends State<ViajesTab> {
               'Registra tu próximo viaje para encontrar encomiendas en tu misma ruta.',
             )
           else ...[
-              // Chips para elegir el viaje.
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
@@ -254,61 +245,12 @@ class _ViajesTabState extends State<ViajesTab> {
               const SizedBox(height: 20),
 
               if (_viajeSeleccionado != null) ...[
-                // ---- Tarjeta del viaje seleccionado ----
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                        color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.flight_rounded,
-                              color: Color(0xFF38BDF8), size: 22),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Vuelo ${_viajeSeleccionado!.numeroVuelo}',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline_rounded,
-                                color: Colors.redAccent, size: 20),
-                            tooltip: 'Cerrar viaje',
-                            onPressed: () =>
-                                _confirmarEliminarViaje(_viajeSeleccionado!),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 16,
-                        runSpacing: 6,
-                        children: [
-                          _Dato(
-                              icon: Icons.event_outlined,
-                              texto: 'Fecha: ${_fmtFecha(_viajeSeleccionado!.fecha)}'),
-                          _Dato(
-                              icon: Icons.location_on_outlined,
-                              texto:
-                              'Ruta: ${_viajeSeleccionado!.origen} ➔ ${_viajeSeleccionado!.destino}'),
-                        ],
-                      ),
-                    ],
-                  ),
+                _TarjetaViaje(
+                  viaje: _viajeSeleccionado!,
+                  fecha: _fmtFecha(_viajeSeleccionado!.fecha),
+                  onCerrar: () => _confirmarEliminarViaje(_viajeSeleccionado!),
                 ),
                 const SizedBox(height: 20),
-
-                // ---- Encomiendas de otros usuarios en mi ruta ----
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -327,15 +269,15 @@ class _ViajesTabState extends State<ViajesTab> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                if (encomiendaVM.encomiendasDisponiblesRuta.isEmpty)
+                if (disponibles.isEmpty)
                   _Mensaje(
                     icon: Icons.search_off_rounded,
                     titulo: 'Sin solicitudes coincidentes',
                     texto:
-                    'No hay encomiendas para la ruta ${_viajeSeleccionado!.origen} → ${_viajeSeleccionado!.destino} en este momento. Desliza hacia abajo para actualizar.',
+                    'No hay encomiendas nuevas para la ruta ${_viajeSeleccionado!.origen} → ${_viajeSeleccionado!.destino}. Desliza hacia abajo para actualizar.',
                   )
                 else
-                  ...encomiendaVM.encomiendasDisponiblesRuta.map(
+                  ...disponibles.map(
                         (enc) => _EncomiendaCoincidenteCard(
                       encomienda: enc,
                       onAceptar: () => _aceptarEncomienda(enc),
@@ -343,13 +285,163 @@ class _ViajesTabState extends State<ViajesTab> {
                   ),
               ],
             ],
+
+          // ---- Encomiendas que llevo (Firestore) ----
+          if (llevo.isNotEmpty) ...[
+            const SizedBox(height: 28),
+            const Text('Encomiendas que llevo',
+                style: TextStyle(
+                    color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            const Text('Encomiendas que aceptaste. Coordina la entrega por chat.',
+                style: TextStyle(color: Colors.white54, fontSize: 13)),
+            const SizedBox(height: 12),
+            ...llevo.map((c) => _LlevoCard(chat: c, miUid: miUid)),
+          ],
         ],
       ),
     );
   }
 }
 
-/// Ícono pequeño + texto (fecha, ruta).
+/// Tarjeta del viaje seleccionado (con etiqueta "En curso" si aplica).
+class _TarjetaViaje extends StatelessWidget {
+  final ViajeModel viaje;
+  final String fecha;
+  final VoidCallback onCerrar;
+  const _TarjetaViaje(
+      {required this.viaje, required this.fecha, required this.onCerrar});
+
+  @override
+  Widget build(BuildContext context) {
+    final enCurso =
+    !['disponible', 'activo'].contains(viaje.estado.toLowerCase());
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.flight_rounded, color: Color(0xFF38BDF8), size: 22),
+              const SizedBox(width: 8),
+              Text('Vuelo ${viaje.numeroVuelo}',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16)),
+              const SizedBox(width: 8),
+              if (enCurso)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text('En curso',
+                      style: TextStyle(
+                          color: Colors.greenAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold)),
+                ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded,
+                    color: Colors.redAccent, size: 20),
+                tooltip: 'Cerrar viaje',
+                onPressed: onCerrar,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 16,
+            runSpacing: 6,
+            children: [
+              _Dato(icon: Icons.event_outlined, texto: 'Fecha: $fecha'),
+              _Dato(
+                  icon: Icons.location_on_outlined,
+                  texto: 'Ruta: ${viaje.origen} ➔ ${viaje.destino}'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tarjeta de una encomienda que llevo, con acceso directo al chat.
+class _LlevoCard extends StatelessWidget {
+  final ChatResumen chat;
+  final String miUid;
+  const _LlevoCard({required this.chat, required this.miUid});
+
+  @override
+  Widget build(BuildContext context) {
+    final nombre = chat.nombreDelOtro(miUid);
+    final nuevo = chat.tieneMensajeNuevo(miUid);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => context.push(AppRoutes.chat,
+              extra: {'chatId': chat.chatId, 'receiverName': nombre}),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.inventory_2_rounded,
+                    color: Colors.greenAccent, size: 26),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('De: $nombre',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15)),
+                      if (chat.ruta.isNotEmpty)
+                        Text(chat.ruta,
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 13)),
+                      if (chat.ultimoMensaje.isNotEmpty)
+                        Text(chat.ultimoMensaje,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: Colors.white54, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Badge(
+                  isLabelVisible: nuevo,
+                  label: const Text('1'),
+                  child: const Icon(Icons.chat_bubble_rounded,
+                      color: Color(0xFF38BDF8)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Dato extends StatelessWidget {
   final IconData icon;
   final String texto;
@@ -371,51 +463,34 @@ class _Dato extends StatelessWidget {
   }
 }
 
-/// Tarjeta de una encomienda que coincide con la ruta del viajero.
-/// Estados: vencida (gris), aceptada (verde + chat) o disponible (botón aceptar).
+/// Encomienda disponible en la ruta (o vencida).
 class _EncomiendaCoincidenteCard extends StatelessWidget {
   final EncomiendaModel encomienda;
   final VoidCallback onAceptar;
-
-  const _EncomiendaCoincidenteCard({
-    required this.encomienda,
-    required this.onAceptar,
-  });
+  const _EncomiendaCoincidenteCard(
+      {required this.encomienda, required this.onAceptar});
 
   @override
   Widget build(BuildContext context) {
-    final aceptada = !encomienda.estaDisponible;
     final vencida = encomienda.estaVencida;
-
-    Color tarjetaColor = const Color(0xFF1E293B);
-    Color bordeColor = const Color(0xFF38BDF8).withValues(alpha: 0.2);
-    if (vencida) {
-      tarjetaColor = const Color(0xFF334155);
-      bordeColor = Colors.grey.shade600;
-    } else if (aceptada) {
-      bordeColor = Colors.green.withValues(alpha: 0.4);
-    }
+    final peso = encomienda.peso.trim();
+    final tienePeso = peso.isNotEmpty && peso != '—' && peso != '-';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: tarjetaColor,
+          color: vencida ? const Color(0xFF334155) : const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: bordeColor),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          border: Border.all(
+              color: vencida
+                  ? Colors.grey.shade600
+                  : const Color(0xFF38BDF8).withValues(alpha: 0.2)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Remitente + valor
             Row(
               children: [
                 Icon(Icons.person_pin_circle_rounded,
@@ -423,48 +498,40 @@ class _EncomiendaCoincidenteCard extends StatelessWidget {
                     size: 20),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: Text(
-                    encomienda.nombreRemitente,
-                    style: TextStyle(
-                      color: vencida ? Colors.grey.shade300 : Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
+                  child: Text(encomienda.nombreRemitente,
+                      style: TextStyle(
+                          color: vencida ? Colors.grey.shade300 : Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15)),
                 ),
                 Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: (vencida ? Colors.grey : const Color(0xFFD97706))
                         .withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(
-                    '\$${encomienda.valorPagar.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      color:
-                      vencida ? Colors.grey.shade400 : const Color(0xFFF59E0B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
+                  child: Text('\$${encomienda.valorPagar.toStringAsFixed(2)}',
+                      style: TextStyle(
+                          color: vencida
+                              ? Colors.grey.shade400
+                              : const Color(0xFFF59E0B),
+                          fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
             const SizedBox(height: 10),
-            Text(
-              encomienda.descripcion,
-              style: TextStyle(
-                  color: vencida ? Colors.grey.shade400 : Colors.white70,
-                  fontSize: 13),
-            ),
+            Text(encomienda.descripcion,
+                style: TextStyle(
+                    color: vencida ? Colors.grey.shade400 : Colors.white70,
+                    fontSize: 13)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 16,
               runSpacing: 4,
               children: [
-                _Dato(icon: Icons.scale_outlined, texto: 'Peso: ${encomienda.peso}'),
+                if (tienePeso)
+                  _Dato(icon: Icons.scale_outlined, texto: 'Peso: $peso'),
                 _Dato(
                   icon: Icons.event_outlined,
                   texto: vencida
@@ -474,71 +541,11 @@ class _EncomiendaCoincidenteCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-
             if (vencida)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.timer_off_rounded, color: Colors.grey, size: 18),
-                    SizedBox(width: 6),
-                    Text('Encomienda Expirada',
-                        style: TextStyle(
-                            color: Colors.grey, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              )
-            else if (aceptada)
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                        border:
-                        Border.all(color: Colors.green.withValues(alpha: 0.3)),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle_rounded,
-                              color: Colors.greenAccent, size: 18),
-                          SizedBox(width: 6),
-                          Text('Encomienda Aceptada',
-                              style: TextStyle(
-                                  color: Colors.greenAccent,
-                                  fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  IconButton(
-                    tooltip: 'Abrir Chat',
-                    onPressed: () => context.push(
-                      AppRoutes.chat,
-                      extra: {
-                        'chatId': encomienda.id,
-                        'receiverName': encomienda.nombreRemitente,
-                      },
-                    ),
-                    icon: const Icon(Icons.chat_bubble_rounded,
-                        color: Color(0xFF38BDF8)),
-                    style: IconButton.styleFrom(
-                      backgroundColor:
-                      const Color(0xFF38BDF8).withValues(alpha: 0.15),
-                    ),
-                  ),
-                ],
+              const Center(
+                child: Text('Encomienda Expirada',
+                    style: TextStyle(
+                        color: Colors.grey, fontWeight: FontWeight.bold)),
               )
             else
               SizedBox(
@@ -546,13 +553,10 @@ class _EncomiendaCoincidenteCard extends StatelessWidget {
                 height: 46,
                 child: ElevatedButton.icon(
                   onPressed: onAceptar,
-                  icon: const Icon(Icons.check_rounded,
-                      color: Colors.white, size: 18),
+                  icon: const Icon(Icons.check_rounded, color: Colors.white, size: 18),
                   label: const Text('Aceptar Llevar Encomienda',
                       style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14)),
+                          color: Colors.white, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0284C7),
                     shape: RoundedRectangleBorder(
@@ -567,7 +571,6 @@ class _EncomiendaCoincidenteCard extends StatelessWidget {
   }
 }
 
-/// Vista cuando el usuario está en modo Remitente.
 class _VistaRemitente extends StatelessWidget {
   const _VistaRemitente();
 
@@ -595,7 +598,6 @@ class _VistaRemitente extends StatelessWidget {
   }
 }
 
-/// Tarjeta de mensaje informativo (lista vacía, avisos).
 class _Mensaje extends StatelessWidget {
   final IconData icon;
   final String titulo;

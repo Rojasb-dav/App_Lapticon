@@ -3,7 +3,7 @@ import '../../models/encomienda_model.dart';
 import '../network/api_client.dart';
 import '../network/api_constants.dart';
 
-/// Encomiendas guardadas SOLO en el backend: así las ven otros usuarios
+/// Encomiendas guardadas en el backend: así las ven otros usuarios
 /// y se conservan al cambiar de celular. Los errores se lanzan (no se ocultan).
 class EncomiendaRepository {
   final ApiClient _apiClient;
@@ -12,6 +12,9 @@ class EncomiendaRepository {
   EncomiendaRepository({ApiClient? apiClient, FirebaseAuth? firebaseAuth})
       : _apiClient = apiClient ?? ApiClient(),
         _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
+
+  /// Estados que se prueban para cancelar una encomienda en el servidor.
+  static const _estadosCancelacion = ['cancelada', 'cancelado', 'eliminada'];
 
   /// El backend responde a veces una lista directa y otras un objeto
   /// con listas adentro (ej. {"disponibles": [...]}). Se juntan todas.
@@ -45,7 +48,7 @@ class EncomiendaRepository {
       'ciudadDestino': destino,
       'valor': valorPagar,
       'observaciones': '$descripcion (Peso: $peso)',
-      'fechaLimiteEntrega': fechaVencimiento, // ⚠ confirmar nombre con David
+      'fechaLimiteEntrega': fechaVencimiento,
       'nombreRemitente': nombreRemitente,
     });
 
@@ -75,7 +78,8 @@ class EncomiendaRepository {
   }) async {
     final o = Uri.encodeQueryComponent(origen);
     final d = Uri.encodeQueryComponent(destino);
-    final res = await _apiClient.get('${ApiConstants.encomiendasDisponibles}?origen=$o&destino=$d');
+    final res = await _apiClient
+        .get('${ApiConstants.encomiendasDisponibles}?origen=$o&destino=$d');
     return _extraerLista(res);
   }
 
@@ -100,5 +104,38 @@ class EncomiendaRepository {
   }) async {
     await _apiClient.put(ApiConstants.encomiendaEstado(id), {'estado': nuevoEstado});
     return true;
+  }
+
+  /// Intenta eliminar/cancelar la encomienda EN EL SERVIDOR.
+  /// Prueba: DELETE /api/encomiendas/:id, luego PUT y PATCH /api/encomiendas/:id/estado.
+  /// Si ninguna ruta existe, lanza un error 404 (la app la cancela en Firestore).
+  Future<void> eliminarEncomienda(String id) async {
+    try {
+      await _apiClient.delete('${ApiConstants.encomiendas}/$id');
+      return;
+    } on ApiException catch (_) {
+      // No existe DELETE → probar cambiar el estado.
+    }
+
+    for (final metodo in ['PUT', 'PATCH']) {
+      for (final estado in _estadosCancelacion) {
+        try {
+          final body = {'estado': estado};
+          if (metodo == 'PUT') {
+            await _apiClient.put(ApiConstants.encomiendaEstado(id), body);
+          } else {
+            await _apiClient.patch(ApiConstants.encomiendaEstado(id), body);
+          }
+          return;
+        } on ApiException catch (e) {
+          // 400/422: la ruta existe pero no acepta ese estado → probar otro.
+          if (e.statusCode == 400 || e.statusCode == 422) continue;
+          break; // la ruta no existe → probar el siguiente método
+        }
+      }
+    }
+
+    throw ApiException('El servidor no tiene una ruta para eliminar encomiendas.',
+        statusCode: 404);
   }
 }
