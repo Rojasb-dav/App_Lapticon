@@ -92,6 +92,32 @@ class ApiClient {
     }
   }
 
+  /// Perform PATCH request
+  Future<dynamic> patch(String endpoint, Map<String, dynamic> body) async {
+    final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+    final headers = await _getHeaders();
+    try {
+      final response = await _client.patch(uri, headers: headers, body: jsonEncode(body));
+      return _processResponse(response);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Error de red al conectar con el servidor: $e');
+    }
+  }
+
+  /// Perform DELETE request
+  Future<dynamic> delete(String endpoint) async {
+    final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+    final headers = await _getHeaders();
+    try {
+      final response = await _client.delete(uri, headers: headers);
+      return _processResponse(response);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Error de red al conectar con el servidor: $e');
+    }
+  }
+
   /// Process HTTP response and return JSON or handle errors
   dynamic _processResponse(http.Response response) {
     dynamic responseJson;
@@ -110,8 +136,11 @@ class ApiClient {
     } else if (response.statusCode == 401 || response.statusCode == 403) {
       throw ApiException('No autorizado. Sesión inválida o expirada.', statusCode: response.statusCode);
     } else {
-      final errorMessage = responseJson is Map && responseJson.containsKey('message')
-          ? responseJson['message']
+      // El backend puede mandar el motivo en 'message', 'error', 'msg' o 'mensaje'
+      final errorMessage = responseJson is Map
+          ? (responseJson['message'] ?? responseJson['error'] ??
+          responseJson['msg'] ?? responseJson['mensaje'] ??
+          'Error en la solicitud al servidor')
           : 'Error en la solicitud al servidor';
       throw ApiException(errorMessage.toString(), statusCode: response.statusCode);
     }

@@ -91,28 +91,29 @@ class EncomiendaViewModel extends ChangeNotifier {
   }
 
   /// Cargar encomiendas del remitente
+  /// Mis encomiendas desde el backend (la caché solo si no hay conexión).
   Future<void> cargarMisEncomiendas() async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
-
-    await _cargarCache();
-
     try {
       final list = await _repository.obtenerMisEncomiendas();
-      for (var item in list) {
-        if (!_misEncomiendas.any((e) => e.id == item.id)) {
-          _misEncomiendas.add(item);
-        }
-      }
+      _misEncomiendas
+        ..clear()
+        ..addAll(list);
       await _guardarCache();
-    } catch (_) {} finally {
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('ApiException: ', '').replaceAll('Exception: ', '');
+      if (_misEncomiendas.isEmpty) await _cargarCache();
+    } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  /// Buscar encomiendas cuya ruta coincida exactamente con la del viajero (Origen -> Destino)
-  /// Excluye las encomiendas creadas por el propio usuario en sesión.
+  /// MATCH: encomiendas de OTROS usuarios con la misma ruta del viaje.
+  /// Las propias se excluyen comparando su _id con "mis encomiendas",
+  /// porque /disponibles no trae el uid del remitente.
   Future<void> buscarEncomiendasParaViajero({
     required String origen,
     required String destino,
@@ -122,21 +123,27 @@ class EncomiendaViewModel extends ChangeNotifier {
     notifyListeners();
 
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    String norm(String s) => s.trim().toLowerCase()
+        .replaceAll('á', 'a').replaceAll('é', 'e').replaceAll('í', 'i')
+        .replaceAll('ó', 'o').replaceAll('ú', 'u');
 
     try {
-      final list = await _repository.obtenerEncomiendasDisponibles(
-        origen: origen,
-        destino: destino,
-      );
+      Set<String> idsMias = {};
+      try {
+        idsMias = (await _repository.obtenerMisEncomiendas()).map((e) => e.id).toSet();
+      } catch (_) {}
+
+      final list = await _repository.obtenerEncomiendasDisponibles(origen: origen, destino: destino);
 
       _encomiendasDisponiblesRuta = list.where((e) =>
+      !idsMias.contains(e.id) &&
           (currentUid == null || e.uidRemitente != currentUid) &&
-          e.origen.trim().toLowerCase() == origen.trim().toLowerCase() &&
-          e.destino.trim().toLowerCase() == destino.trim().toLowerCase() &&
-          (e.estaDisponible || e.estaTomada)).toList();
-
+          norm(e.origen) == norm(origen) &&
+          norm(e.destino) == norm(destino) &&
+          (e.estaDisponible || (e.estaTomada && e.uidViajero == currentUid))).toList();
     } catch (e) {
-      _errorMessage = e.toString();
+      _encomiendasDisponiblesRuta = [];
+      _errorMessage = e.toString().replaceAll('ApiException: ', '').replaceAll('Exception: ', '');
     } finally {
       _isLoading = false;
       notifyListeners();

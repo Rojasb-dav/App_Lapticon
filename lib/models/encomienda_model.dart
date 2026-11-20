@@ -40,6 +40,8 @@ class EncomiendaModel {
     return parsed.isBefore(inicioDeHoy);
   }
 
+  /// Lee los campos reales del backend (ciudadOrigen, valor, observaciones, viajeroId...)
+  /// y los antiguos como respaldo para la caché local.
   factory EncomiendaModel.fromJson(Map<String, dynamic> json) {
     double parseDouble(dynamic val) {
       if (val is num) return val.toDouble();
@@ -47,18 +49,21 @@ class EncomiendaModel {
       return 0.0;
     }
 
+    // "2026-12-20T00:00:00.000Z" → "2026-12-20"
+    String soloFecha(dynamic v) => (v ?? '').toString().split('T').first;
+
     return EncomiendaModel(
-      id: (json['id'] ?? json['_id'] ?? json['uid'] ?? '').toString(),
-      uidRemitente: (json['uidRemitente'] ?? json['remitenteUid'] ?? json['uid'] ?? '').toString(),
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      uidRemitente: (json['uidRemitente'] ?? json['uid'] ?? json['remitenteUid'] ?? '').toString(),
       nombreRemitente: (json['nombreRemitente'] ?? json['remitenteNombre'] ?? 'Remitente').toString(),
-      origen: (json['origen'] ?? '').toString(),
-      destino: (json['destino'] ?? '').toString(),
-      descripcion: (json['descripcion'] ?? '').toString(),
-      peso: (json['peso'] ?? '1 kg').toString(),
-      valorPagar: parseDouble(json['valorPagar'] ?? json['precio'] ?? json['recompensa']),
-      fechaVencimiento: (json['fechaVencimiento'] ?? json['vencimiento'] ?? json['fecha'] ?? '').toString(),
+      origen: (json['ciudadOrigen'] ?? json['origen'] ?? '').toString(),
+      destino: (json['ciudadDestino'] ?? json['destino'] ?? '').toString(),
+      descripcion: (json['observaciones'] ?? json['descripcion'] ?? '').toString(),
+      peso: (json['peso'] ?? '—').toString(),
+      valorPagar: parseDouble(json['valor'] ?? json['valorPagar'] ?? json['precio']),
+      fechaVencimiento: soloFecha(json['fechaLimiteEntrega'] ?? json['fechaVencimiento']),
       estado: (json['estado'] ?? 'disponible').toString(),
-      uidViajero: json['uidViajero']?.toString(),
+      uidViajero: (json['viajeroId'] ?? json['uidViajero'])?.toString(),
       nombreViajero: json['nombreViajero']?.toString(),
     );
   }

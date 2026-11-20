@@ -15,16 +15,19 @@ class ViajeModel {
     required this.estado,
   });
 
+  /// Lee los nombres que usa el backend (ciudadOrigen, fechaViaje...)
+  /// y también los antiguos, para que la caché local siga funcionando.
   factory ViajeModel.fromJson(Map<String, dynamic> j) {
     return ViajeModel(
       id: (j['_id'] ?? j['id'] ?? '').toString(),
-      numeroVuelo: (j['numeroVuelo'] ?? j['vuelo'] ?? j['numero_vuelo'] ?? j['flightNumber'] ?? '').toString(),
-      fecha: DateTime.tryParse((j['fecha'] ?? j['fechaViaje'] ?? '').toString()),
-      origen: (j['origen'] ?? '').toString(),
-      destino: (j['destino'] ?? '').toString(),
+      numeroVuelo: (j['numeroVuelo'] ?? j['vuelo'] ?? '').toString(),
+      fecha: DateTime.tryParse((j['fechaViaje'] ?? j['fecha'] ?? '').toString()),
+      origen: (j['ciudadOrigen'] ?? j['origen'] ?? '').toString(),
+      destino: (j['ciudadDestino'] ?? j['destino'] ?? '').toString(),
       estado: (j['estado'] ?? 'activo').toString(),
     );
   }
+
 
   Map<String, dynamic> toJson() {
     return {

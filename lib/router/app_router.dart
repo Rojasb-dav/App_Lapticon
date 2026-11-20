@@ -10,6 +10,7 @@ import '../screens/auth/role_selection_screen.dart';
 import '../screens/viajes/registrar_viaje_screen.dart';
 import '../screens/encomiendas/crear_encomienda_screen.dart';
 import '../screens/chat/chat_screen.dart';
+import '../screens/chat/mis_chats_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -22,6 +23,8 @@ class AppRoutes {
   static const String registrarViaje = '/registrar-viaje';
   static const String crearEncomienda = '/crear-encomienda';
   static const String chat = '/chat';
+  static const String misChats = '/mis-chats';
+
 }
 
 final GoRouter appRouter = GoRouter(
@@ -38,6 +41,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.crearEncomienda,
       builder: (context, state) => const CrearEncomiendaScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.misChats,
+      builder: (context, state) => const MisChatsScreen(),
     ),
     GoRoute(
       path: AppRoutes.chat,

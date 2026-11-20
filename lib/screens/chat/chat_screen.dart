@@ -1,239 +1,191 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart';
+import '../../models/chat_model.dart';
 import '../../viewmodels/chat_viewmodel.dart';
 import '../../viewmodels/user_viewmodel.dart';
-import '../../viewmodels/auth_viewmodel.dart';
-import '../../widgets/lapticon_ui.dart';
 
+/// Pantalla de conversación entre remitente y viajero (tiempo real).
 class ChatScreen extends StatefulWidget {
   final String chatId;
   final String receiverName;
-
-  const ChatScreen({
-    super.key,
-    required this.chatId,
-    required this.receiverName,
-  });
+  const ChatScreen(
+      {super.key, required this.chatId, required this.receiverName});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final _msgCtrl = TextEditingController();
-  final _scrollCtrl = ScrollController();
+  final _textCtrl = TextEditingController();
+  late final ChatViewModel _vm;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatViewModel>().cargarMensajes(widget.chatId).then((_) {
-        _scrollToBottom();
-      });
-    });
+    _vm = context.read<ChatViewModel>();
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _vm.abrirChat(widget.chatId));
   }
 
   @override
   void dispose() {
-    _msgCtrl.dispose();
-    _scrollCtrl.dispose();
+    _vm.cerrarChat();
+    _textCtrl.dispose();
     super.dispose();
   }
 
-  void _scrollToBottom() {
-    if (_scrollCtrl.hasClients) {
-      _scrollCtrl.animateTo(
-        _scrollCtrl.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
-  }
-
   Future<void> _enviar() async {
-    final text = _msgCtrl.text.trim();
-    if (text.isEmpty) return;
-
-    _msgCtrl.clear();
-    final userVM = context.read<UserViewModel>();
-    final authVM = context.read<AuthViewModel>();
-    final senderName = userVM.userProfile?.nombreCompleto ??
-        authVM.currentUser?.email?.split('@').first ??
-        'Usuario';
-
-    await context.read<ChatViewModel>().enviarMensaje(
-      chatId: widget.chatId,
-      texto: text,
-      nombreRemitente: senderName,
-    );
-
-    _scrollToBottom();
+    final texto = _textCtrl.text.trim();
+    if (texto.isEmpty) return;
+    _textCtrl.clear();
+    final nombre =
+        context.read<UserViewModel>().userProfile?.nombreCompleto ?? 'Usuario';
+    final error = await _vm.enviarMensaje(
+        chatId: widget.chatId, texto: texto, nombreRemitente: nombre);
+    if (!mounted || error == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), backgroundColor: Colors.redAccent));
   }
 
   @override
   Widget build(BuildContext context) {
-    final chatVM = context.watch<ChatViewModel>();
-    final authVM = context.watch<AuthViewModel>();
-    final myUid = authVM.currentUser?.uid ?? '';
+    final vm = context.watch<ChatViewModel>();
+    final miUid = vm.miUid;
+    // Lista invertida: el mensaje más nuevo queda abajo sin manejar scroll.
+    final mensajes = vm.mensajes.reversed.toList();
 
     return Scaffold(
+      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E293B),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-          onPressed: () => context.pop(),
-        ),
-        title: Row(
+        foregroundColor: Colors.white,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: const Color(0xFF0284C7),
-              child: Text(
-                widget.receiverName.isNotEmpty ? widget.receiverName[0].toUpperCase() : 'U',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+            Text(widget.receiverName,
+                style:
+                const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            const Text('Chat de la encomienda',
+                style: TextStyle(fontSize: 12, color: Colors.white54)),
+          ],
+        ),
+      ),
+      body: Column(
+        children: [
+          if (vm.error != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              color: Colors.redAccent.withValues(alpha: 0.2),
+              child: Text(vm.error!,
+                  style: const TextStyle(color: Colors.redAccent)),
+            ),
+          Expanded(
+            child: vm.isLoading && mensajes.isEmpty
+                ? const Center(
+                child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
+                : mensajes.isEmpty
+                ? const Center(
+                child: Text('Aún no hay mensajes. ¡Saluda! 👋',
+                    style: TextStyle(color: Colors.white54)))
+                : ListView.builder(
+              reverse: true,
+              padding: const EdgeInsets.all(12),
+              itemCount: mensajes.length,
+              itemBuilder: (_, i) => _Burbuja(
+                mensaje: mensajes[i],
+                esMio: mensajes[i].senderUid == miUid,
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          SafeArea(
+            top: false,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+              color: const Color(0xFF1E293B),
+              child: Row(
                 children: [
-                  Text(
-                    widget.receiverName,
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
+                  Expanded(
+                    child: TextField(
+                      controller: _textCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      textCapitalization: TextCapitalization.sentences,
+                      minLines: 1,
+                      maxLines: 4,
+                      onSubmitted: (_) => _enviar(),
+                      decoration: InputDecoration(
+                        hintText: 'Escribe un mensaje...',
+                        hintStyle: const TextStyle(color: Colors.white38),
+                        filled: true,
+                        fillColor: const Color(0xFF0F172A),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
                   ),
-                  const Text(
-                    'Chat de Coordinación',
-                    style: TextStyle(color: Colors.white54, fontSize: 11),
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                          colors: [Color(0xFF0284C7), Color(0xFF2563EB)]),
+                    ),
+                    child: IconButton(
+                      onPressed: _enviar,
+                      icon: const Icon(Icons.send_rounded, color: Colors.white),
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-      body: Container(
-        decoration: lapticonFondo,
-        child: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: chatVM.isLoading && chatVM.mensajes.isEmpty
-                    ? const Center(child: CircularProgressIndicator(color: Color(0xFF38BDF8)))
-                    : chatVM.mensajes.isEmpty
-                        ? const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(30),
-                              child: Text(
-                                '¡Comienza la conversación para coordinar los detalles de entrega!',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.white60, fontSize: 14),
-                              ),
-                            ),
-                          )
-                        : ListView.builder(
-                            controller: _scrollCtrl,
-                            padding: const EdgeInsets.all(16),
-                            itemCount: chatVM.mensajes.length,
-                            itemBuilder: (context, index) {
-                              final msg = chatVM.mensajes[index];
-                              final esMio = msg.senderUid == myUid;
-
-                              return Align(
-                                alignment: esMio ? Alignment.centerRight : Alignment.centerLeft,
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 10),
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                  constraints: BoxConstraints(
-                                    maxWidth: MediaQuery.of(context).size.width * 0.75,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: esMio ? const Color(0xFF0284C7) : const Color(0xFF1E293B),
-                                    borderRadius: BorderRadius.only(
-                                      topLeft: const Radius.circular(16),
-                                      topRight: const Radius.circular(16),
-                                      bottomLeft: Radius.circular(esMio ? 16 : 4),
-                                      bottomRight: Radius.circular(esMio ? 4 : 16),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.15),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        esMio ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                                    children: [
-                                      if (!esMio)
-                                        Text(
-                                          msg.senderName,
-                                          style: const TextStyle(
-                                            color: Color(0xFF38BDF8),
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      Text(
-                                        msg.text,
-                                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-              ),
-
-              // Bottom Input Bar
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _msgCtrl,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'Escribe un mensaje...',
-                          hintStyle: const TextStyle(color: Colors.white38),
-                          filled: true,
-                          fillColor: const Color(0xFF0F172A),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                        onSubmitted: (_) => _enviar(),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF0284C7),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                        onPressed: _enviar,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Burbuja de mensaje: azul a la derecha (mío), gris a la izquierda (del otro).
+class _Burbuja extends StatelessWidget {
+  final ChatMessageModel mensaje;
+  final bool esMio;
+  const _Burbuja({required this.mensaje, required this.esMio});
+
+  @override
+  Widget build(BuildContext context) {
+    final h = mensaje.timestamp;
+    final hora =
+        '${h.hour.toString().padLeft(2, '0')}:${h.minute.toString().padLeft(2, '0')}';
+    return Align(
+      alignment: esMio ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.75),
+        decoration: BoxDecoration(
+          color: esMio ? const Color(0xFF0284C7) : const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!esMio)
+              Text(mensaje.senderName,
+                  style: const TextStyle(
+                      color: Color(0xFF38BDF8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold)),
+            Text(mensaje.text,
+                style: const TextStyle(color: Colors.white, fontSize: 15)),
+            const SizedBox(height: 2),
+            Text(hora,
+                style: const TextStyle(color: Colors.white54, fontSize: 10)),
+          ],
         ),
       ),
     );
