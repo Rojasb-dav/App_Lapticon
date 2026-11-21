@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.example.app_lapticon"
-    compileSdk = 35
+    compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -24,7 +24,7 @@ android {
         // Application ID matching Firebase google-services.json package_name
         applicationId = "com.example.lapticon_clean"
         minSdk = 23
-        targetSdk = 35
+        targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
